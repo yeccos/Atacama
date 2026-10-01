@@ -1,0 +1,105 @@
+// Facturas recibidas: qué se debe a cada proveedor y qué pagos de la cartola las cubren.
+import { compacto } from '@atacama/core'
+import type { FastifyInstance } from 'fastify'
+import { auditar } from './crud'
+import { prisma } from './db'
+
+const iso = (d: Date) => d.toISOString().slice(0, 10)
+const SUPUESTO = 'Supuesto'
+
+/** Positivo para facturas y notas de débito, negativo para notas de crédito. */
+const signo = (tipo: string) => (tipo === 'NOTA_CREDITO' ? -1 : 1)
+
+export type EstadoDoc = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
+
+export async function documentosConSaldo() {
+  const docs = await prisma.documento.findMany({
+    include: { proveedor: true, aplicaciones: { include: { pago: true } } },
+    orderBy: [{ emision: 'desc' }, { id: 'desc' }],
+  })
+  return docs.map((d) => {
+    const pagado = d.aplicaciones.reduce((s, a) => s + a.monto, 0)
+    const supuesto = d.aplicaciones.length > 0 && d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
+    const total = signo(d.tipo) * d.total
+    const saldo = total - signo(d.tipo) * pagado
+    const estado: EstadoDoc = Math.abs(saldo) < 1 ? (supuesto ? 'SUPUESTA' : 'PAGADA') : pagado > 0 ? 'PARCIAL' : 'PENDIENTE'
+    return {
+      id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, tipo: d.tipo, folio: d.folio,
+      emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
+      total, pagado: signo(d.tipo) * pagado, saldo, estado,
+    }
+  })
+}
+
+export function registrarDocumentos(app: FastifyInstance) {
+  app.get('/api/documentos/resumen', async () => {
+    const docs = await documentosConSaldo()
+    const porProveedor: Record<number, { proveedorId: number; proveedor: string; n: number; saldo: number; masAntiguo: string }> = {}
+    for (const d of docs.filter((x) => x.estado === 'PENDIENTE' || x.estado === 'PARCIAL')) {
+      const p = (porProveedor[d.proveedorId] ??= { proveedorId: d.proveedorId, proveedor: d.proveedor, n: 0, saldo: 0, masAntiguo: d.emision })
+      p.n++
+      p.saldo += d.saldo
+      if (d.emision < p.masAntiguo) p.masAntiguo = d.emision
+    }
+    return { documentos: docs, saldosPorProveedor: Object.values(porProveedor).sort((a, b) => b.saldo - a.saldo) }
+  })
+
+  // Marcar una factura como pagada (con un pago por su saldo) o dejarla pendiente (se borran sus pagos supuestos).
+  app.post('/api/documentos/:id/estado', async (req, reply) => {
+    const id = Number((req.params as any).id)
+    const { pagada } = (req.body ?? {}) as { pagada?: boolean }
+    const doc = await prisma.documento.findUnique({ where: { id }, include: { aplicaciones: { include: { pago: true } } } })
+    if (!doc) return reply.code(404).send({ error: 'La factura no existe' })
+    if (pagada) {
+      const pagado = doc.aplicaciones.reduce((s, a) => s + a.monto, 0)
+      if (doc.total - pagado > 0) {
+        const pago = await prisma.pago.create({ data: { proveedorId: doc.proveedorId, fecha: new Date(), monto: doc.total - pagado, nota: `${SUPUESTO} pagado (marcado a mano)` } })
+        await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: id, monto: doc.total - pagado } })
+      }
+    } else {
+      for (const a of doc.aplicaciones.filter((x) => (x.pago.nota ?? '').startsWith(SUPUESTO))) await prisma.pago.delete({ where: { id: a.pagoId } })
+    }
+    await auditar(req.usuario, 'Documento', id, 'MODIFICAR', null, { pagada })
+    return { ok: true }
+  })
+
+  // Cruza las facturas pendientes (o solo supuestas) con los pagos de la cartola: mismo monto y mismo proveedor.
+  app.post('/api/documentos/conciliar', async (req) => {
+    const docs = await prisma.documento.findMany({ where: { tipo: { not: 'NOTA_CREDITO' } }, include: { proveedor: true, aplicaciones: { include: { pago: true } } } })
+    const usados = new Set((await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO' } })).map((c) => c.movimientoId))
+    const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 }, cuenta: { moneda: 'CLP' } }, orderBy: { fecha: 'asc' } })
+    let verificadas = 0
+    let nuevas = 0
+    const dudosas: string[] = []
+    for (const d of docs) {
+      const supuesto = d.aplicaciones.length > 0 && d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
+      const pagadoReal = d.aplicaciones.length > 0 && !supuesto
+      if (pagadoReal) continue
+      const nombre = compacto(d.proveedor.nombre)
+      const candidatos = movs.filter((m) => m.cargo === d.total && !usados.has(m.id) && iso(m.fecha) >= iso(d.emision))
+      const delProveedor = candidatos.filter((m) => m.proveedorId === d.proveedorId || (m.contraparte && (compacto(m.contraparte).includes(nombre) || nombre.includes(compacto(m.contraparte)))))
+      let m: (typeof movs)[number] | undefined = delProveedor[0] ?? (candidatos.length === 1 && !candidatos[0].proveedorId ? candidatos[0] : undefined)
+      // Materia prima: el pago puede diferir un poco de la factura (anticipos, ajustes); se acepta hasta 1,5% con el mismo proveedor, cerca de la fecha.
+      let aproximado = false
+      if (!m && d.proveedor.tipo === 'MP') {
+        m = movs.find((x) => !usados.has(x.id) && x.proveedorId === d.proveedorId && Math.abs(x.cargo - d.total) / d.total <= 0.015 && Math.abs(Date.parse(iso(x.fecha)) - Date.parse(iso(d.emision))) <= 15 * 86400000)
+        aproximado = !!m
+      }
+      if (!m) continue
+      if (aproximado) dudosas.push(`${d.proveedor.nombre} ${d.folio}: se asoció el pago de ${m.cargo} del ${iso(m.fecha)}, que difiere de la factura (${d.total})`)
+      else if (!delProveedor.length) dudosas.push(`${d.proveedor.nombre} ${d.folio}: el pago de ${m.contraparte ?? 'otro destinatario'} calza por monto, no por nombre`)
+      for (const a of d.aplicaciones) await prisma.pago.delete({ where: { id: a.pagoId } })
+      const pago = await prisma.pago.create({
+        data: { proveedorId: d.proveedorId, fecha: m.fecha, monto: d.total, cuentaBancariaId: m.cuentaId, nota: `Verificado con la cartola (doc. ${m.nDoc ?? 's/n'})` },
+      })
+      await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: d.id, monto: d.total } })
+      await prisma.conciliacion.create({ data: { movimientoId: m.id, tipoDestino: 'PAGO', destinoId: pago.id, monto: Math.min(d.total, m.cargo) } })
+      await prisma.movimientoBanco.update({ where: { id: m.id }, data: { estado: 'CONCILIADO', proveedorId: m.proveedorId ?? d.proveedorId, categoria: m.categoria ?? 'Proveedores' } })
+      usados.add(m.id)
+      if (supuesto) verificadas++
+      else nuevas++
+    }
+    await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas })
+    return { verificadas, nuevas, dudosas }
+  })
+}

@@ -11,6 +11,7 @@ import { completarFase2 } from './fase2'
 import { marcarMPPagada } from './mpPagada'
 import { repartirMPPorOrigen } from './mpPorOrigen'
 import { marcarSoloOrigen } from './soloOrigen'
+import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarDevolucionesDePrestamos } from './prestamos'
 import { cargarCuentaBice } from './bancos'
 import { ajustarCamionesMinimos } from './camionesMinimos'
@@ -47,6 +48,7 @@ async function main() {
     await marcarSoloOrigen(prisma)
     await cargarCuentaBice(prisma)
     await cargarDevolucionesDePrestamos(prisma)
+    await cargarFacturasComoDocumentos(prisma)
     await ajustarCamionesMinimos(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
@@ -386,6 +388,7 @@ async function main() {
   await marcarSoloOrigen(prisma)
   await cargarCuentaBice(prisma)
   await cargarDevolucionesDePrestamos(prisma)
+  await cargarFacturasComoDocumentos(prisma)
   await ajustarCamionesMinimos(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }

@@ -19,6 +19,7 @@ import {
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
 import { prisma } from './db'
+import { documentosConSaldo } from './documentos'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const num = (x: unknown) => Number(x)
@@ -401,7 +402,13 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   cobros.push(...proy.cobros.map((x) => ({ ...x, fecha: sumarDias(x.fecha, atraso) })))
 
   const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
-  const partidas = (await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto }))
+  // Lo que ya se debe a proveedores: cada factura pendiente sale el día de su vencimiento (o hoy, si ya venció).
+  const hoy = new Date().toISOString().slice(0, 10)
+  const facturasPendientes = (await documentosConSaldo()).filter((d) => d.estado === 'PENDIENTE' || d.estado === 'PARCIAL')
+  const partidas = [
+    ...(await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto })),
+    ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `Factura ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),
+  ]
 
   const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null } }, include: { gastos: true } })
   const deudas = deudasDb

@@ -5,6 +5,7 @@ import Fastify from 'fastify'
 import { registrarAdvertencias } from './advertencias'
 import { registrarAuth } from './auth'
 import { registrarBancos } from './bancos'
+import { registrarDocumentos } from './documentos'
 import { registrarCrud } from './crud'
 import { registrarPresupuesto } from './presupuesto'
 
@@ -19,6 +20,7 @@ registrarCrud(app)
 registrarAdvertencias(app)
 registrarPresupuesto(app)
 registrarBancos(app)
+registrarDocumentos(app)
 
 // En producción el mismo servidor entrega la web ya compilada (apps/web/dist).
 const web = fileURLToPath(new URL('../../web/dist', import.meta.url))

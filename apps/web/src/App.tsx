@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api, sesion } from './api'
 import Login from './Login'
 import Cartolas from './Cartolas'
+import Facturas from './Facturas'
 import FlujoPagina from './FlujoPagina'
 import Maestro from './Maestro'
 import PlanMP from './PlanMP'
@@ -186,6 +187,7 @@ const ESPECIALES = [
   { id: 'presupuesto', menu: 'Presupuesto', grupo: 'Reportes' },
   { id: 'flujo', menu: 'Flujo de caja', grupo: 'Reportes' },
   { id: 'incoterms', menu: 'Incoterms', grupo: 'Comercial' },
+  { id: 'facturas', menu: 'Facturas recibidas', grupo: 'Proveedores' },
   { id: 'auditoria', menu: 'Auditoría', grupo: 'Configuración' },
 ]
 
@@ -236,6 +238,7 @@ export default function App() {
         {actual === 'presupuesto' && <Presupuesto irA={setActual} />}
         {actual === 'flujo' && <FlujoPagina />}
         {actual === 'incoterms' && <Incoterms />}
+        {actual === 'facturas' && <Facturas />}
         {actual === 'auditoria' && <Auditoria />}
         {pagina?.id === 'mp' && <PlanMP />}
         {pagina?.id === 'cartolas' && <Cartolas />}
