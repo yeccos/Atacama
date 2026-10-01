@@ -635,6 +635,11 @@ model MovimientoBanco {
   estado   String   @default("SIN_CONCILIAR") // SIN_CONCILIAR | SUGERIDO | CONCILIADO
   cuentaContableId Int?
   cuentaContable   CuentaContable? @relation(fields: [cuentaContableId], references: [id])
+  // Quién recibe o envía el dinero, tal como viene en la glosa, y a qué corresponde.
+  contraparte String?
+  categoria   String?
+  proveedorId Int?
+  nota        String?
 
   conciliaciones Conciliacion[]
 

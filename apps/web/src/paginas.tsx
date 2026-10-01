@@ -323,6 +323,25 @@ export const PAGINAS: Pagina[] = [
     ],
   },
   {
+    id: 'cartolas', menu: 'Cartolas y movimientos', grupo: 'Bancos',
+    principal: {
+      recurso: 'movimientosBanco', titulo: 'Movimientos del banco',
+      ayuda: 'Cada movimiento de las cartolas. Si no se reconoció, asígnale categoría y proveedor: así se arma el cuadre de pagos a proveedores.',
+      columnas: [
+        { campo: 'fecha', titulo: 'Fecha', tipo: 'fecha', ancho: 110 },
+        { campo: 'contraparte', titulo: 'Contraparte', ancho: 240 },
+        { campo: 'categoria', titulo: 'Categoría', ancho: 210 },
+        { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores', ancho: 180 },
+        { campo: 'cargo', titulo: 'Cargo', tipo: 'entero', ancho: 120 },
+        { campo: 'abono', titulo: 'Abono', tipo: 'entero', ancho: 120 },
+        { campo: 'saldo', titulo: 'Saldo', tipo: 'entero', ancho: 120 },
+        { campo: 'nDoc', titulo: 'N° doc.', ancho: 110 },
+        { campo: 'glosa', titulo: 'Glosa', ancho: 420 },
+        { campo: 'nota', titulo: 'Nota', ancho: 200 },
+      ],
+    },
+  },
+  {
     id: 'cuentas', menu: 'Plan de cuentas', grupo: 'Configuración',
     principal: {
       recurso: 'cuentasContables', titulo: 'Plan de cuentas',

@@ -2,6 +2,7 @@ import { formatoFecha } from '@atacama/core'
 import { useEffect, useState } from 'react'
 import { api, sesion } from './api'
 import Login from './Login'
+import Cartolas from './Cartolas'
 import FlujoPagina from './FlujoPagina'
 import Maestro from './Maestro'
 import PlanMP from './PlanMP'
@@ -237,6 +238,7 @@ export default function App() {
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'auditoria' && <Auditoria />}
         {pagina?.id === 'mp' && <PlanMP />}
+        {pagina?.id === 'cartolas' && <Cartolas />}
         {pagina && <PaginaMaestro key={pagina.id} pagina={pagina} />}
       </main>
     </div>
