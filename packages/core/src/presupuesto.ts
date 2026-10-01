@@ -24,6 +24,24 @@ export interface ClienteIn {
   incoterm: string | null
   /** US$ por contenedor del flete marítimo al destino del cliente. */
   fleteUsdPorCont: number | null
+  /** Producto que compra: define qué antiaglomerante usa y si lleva yodo. */
+  yodada?: boolean
+  antiaglomeranteId?: number | null
+}
+
+/**
+ * Insumo con consumo: el costo del mes es costo unitario × cantidad por unidad de la base × volumen del mes.
+ * Un insumo ANTIAGLOMERANTE solo cuenta para las toneladas de los productos que lo usan, y uno YODO
+ * solo para las de los productos yodados.
+ */
+export interface InsumoIn {
+  id: number
+  nombre: string
+  tipo: string
+  costoUnitario: number | null
+  base: string
+  cantidadPorBase: number | null
+  afectoIVA: boolean
 }
 
 export interface GastoIn {
@@ -58,6 +76,7 @@ export interface EntradaPpto {
   clientes: ClienteIn[]
   origenes: OrigenIn[]
   gastos: GastoIn[]
+  insumos?: InsumoIn[]
   empleados: EmpleadoIn[]
   /** incoterm → tipos de costo que asume la empresa (tabla IncotermCosto). */
   incotermCostos: Record<string, string[]>
@@ -150,6 +169,34 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     })
     if (valores.some((v) => v !== 0)) {
       egresos.push({ clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP' })
+    }
+  }
+
+  // ── Insumos con consumo (pallets, etiquetas, antiaglomerante, yodo...) ──
+  if (!excel) {
+    for (const ins of e.insumos ?? []) {
+      const aplican = e.clientes.filter((c) =>
+        ins.tipo === 'ANTIAGLOMERANTE' ? c.antiaglomeranteId === ins.id : ins.tipo === 'YODO' ? !!c.yodada : true,
+      )
+      const kgIns = e.meses.map((_, i) => sum(aplican.map((c) => cont(c, i) * c.kgPorCont)))
+      const contIns = e.meses.map((_, i) => sum(aplican.map((c) => cont(c, i))))
+      const volumen = (i: number) =>
+        ins.base === 'POR_KG' ? kgIns[i]
+        : ins.base === 'POR_CONTENEDOR' ? contIns[i]
+        : ins.base === 'POR_CAMION' ? (e.camiones[i] ?? 0)
+        : kgIns[i] / 1000
+      if (ins.costoUnitario === null || ins.cantidadPorBase === null) {
+        if (e.meses.some((_, i) => volumen(i) > 0)) {
+          const falta = ins.costoUnitario === null ? 'el costo unitario' : 'la cantidad por unidad'
+          advertencias.push(`Insumo ${ins.nombre}: falta ${falta}; no se está contando en el costo.`)
+        }
+        continue
+      }
+      const valores = e.meses.map((_, i) => {
+        const monto = ins.costoUnitario! * ins.cantidadPorBase! * volumen(i)
+        return monto === 0 ? 0 : -monto
+      })
+      egresos.push({ clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE' })
     }
   }
 

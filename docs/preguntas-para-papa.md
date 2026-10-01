@@ -32,7 +32,7 @@ Las preguntas con ★ son las que más cambian los números.
 16. ★ **¿Qué producto compra cada cliente?** ¿Yodada o no, y qué antiaglomerante lleva? La aplicación ya tiene un catálogo con dióxido de silicio, Nuflow y harina de arroz, y se pueden agregar más: ¿cuáles otros usamos? Para cada uno necesito proveedor, costo por kilo y dosis por tonelada de sal. El costo cambia según la formulación.
 17. ★ **Costo de insumos:** hoy hay un valor global de $35 por kg ("sal, etiquetas, dióxido, yodo"). ¿Cuánto es cada uno por tonelada de producto? Necesito: yodo, antiaglomerante, sacos, etiquetas.
 18. **Sacos:** el flujo tiene 248 sacos × $3.000 = $744.000 aparte. ¿Están incluidos en los $35/kg o se suman?
-19. **Pallets:** el presupuesto usa $20.766 y lo trata como "por tonelada", pero la celda dice "$/un". El flujo usa $14.450 por pallet × 40 + $60.000. ¿Cuánto cuesta cada pallet y cuántos lleva un contenedor?
+19. **Pallets:** quedó como $20.766 por unidad, 1 pallet por tonelada vendida. El flujo del 30-09 usa otro valor ($14.450 por pallet × 40 + $60.000): ¿cuál es el precio vigente de cada pallet, y los $60.000 qué son?
 20. **Grúa horquilla:** "4 × $20.000" por contenedor. ¿Qué es el 4 (horas, movimientos)?
 21. **Petróleo:** el presupuesto usa $15/kg (≈ $300.000 por contenedor de 20 t); el flujo $240.000 × 4 = $960.000 al mes. ¿Cuál es el consumo real?
 22. **Laboratorio, Mantención y Varios** (cada uno con $50.000 por contenedor más un fijo): ¿de dónde salen? "Varios" es $100.000 + $50.000 por contenedor en el presupuesto, pero $1.000.000 en el flujo. ¿Cuál es el real?

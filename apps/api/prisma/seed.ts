@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { totalPedidoUsdCent } from '@atacama/core'
 import { hashClave } from '../src/auth'
 import { completarFase2 } from './fase2'
-import { completarAntiaglomerantes } from './productos'
+import { completarAntiaglomerantes, completarInsumosConsumo } from './productos'
 
 const prisma = new PrismaClient()
 const f = (iso: string) => new Date(iso + 'T00:00:00.000Z')
@@ -26,6 +26,7 @@ async function main() {
   if ((await prisma.cliente.count()) > 0 && !reset) {
     await completarFase2(prisma)
     await completarAntiaglomerantes(prisma)
+    await completarInsumosConsumo(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
   }
@@ -353,6 +354,7 @@ async function main() {
 
   await completarFase2(prisma)
   await completarAntiaglomerantes(prisma)
+  await completarInsumosConsumo(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
 

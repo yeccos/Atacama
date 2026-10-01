@@ -40,12 +40,13 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
 
   const clientesDb = await prisma.cliente.findMany({
     where: { activo: true },
-    include: { precios: true, escalas: true, hitos: true, incoterm: true, destino: { include: { tarifas: true } } },
+    include: { precios: true, escalas: true, hitos: true, incoterm: true, producto: true, destino: { include: { tarifas: true } } },
     orderBy: { id: 'asc' },
   })
   const origenes = await prisma.origenMP.findMany({ orderBy: { id: 'asc' } })
   const gastosDb = await prisma.gastoDriver.findMany({ where: { versionId, activo: true }, include: { tipoCosto: true }, orderBy: { id: 'asc' } })
   const empleados = await prisma.empleado.findMany({ where: { activo: true }, orderBy: { id: 'asc' } })
+  const insumos = await prisma.insumo.findMany({ orderBy: { id: 'asc' } })
   const matriz = await prisma.incotermCosto.findMany({ include: { incoterm: true, tipoCosto: true } })
   const incotermCostos: Record<string, string[]> = {}
   for (const i of await prisma.incoterm.findMany()) incotermCostos[i.codigo] = []
@@ -75,6 +76,8 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
       origenId: c.origenId,
       incoterm: c.incoterm?.codigo ?? null,
       fleteUsdPorCont: tarifa ? num(tarifa.usdPorCont) : null,
+      yodada: c.producto?.yodada ?? false,
+      antiaglomeranteId: c.producto?.antiaglomeranteId ?? null,
       // Solo para el flujo:
       diasTransito: c.destino?.diasTransito ?? 20,
       hitos: [...c.hitos].sort((a, b) => a.orden - b.orden).map((h) => ({ pct: num(h.pct), evento: h.evento, diasDesfase: h.diasDesfase })),
@@ -98,6 +101,11 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
       valorFijo: num(g.valorFijo), valorVariable: num(g.valorVariable), mesEspecifico: g.mesEspecifico,
       tipoCosto: g.tipoCosto?.codigo ?? null, afectoIVA: g.afectoIVA, soloFlujo: g.soloFlujo,
       modoExcel: g.modoExcel as 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE', deudaId: g.deudaId,
+    })),
+    insumos: insumos.map((i) => ({
+      id: i.id, nombre: i.nombre, tipo: i.tipo, base: i.base, afectoIVA: i.afectoIVA,
+      costoUnitario: i.costoUnitario === null ? null : num(i.costoUnitario),
+      cantidadPorBase: i.cantidadPorBase === null ? null : num(i.cantidadPorBase),
     })),
     empleados: empleados.map((e) => ({ cargo: e.cargo, bruto: e.bruto })),
     incotermCostos,

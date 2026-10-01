@@ -213,3 +213,47 @@ describe('economía por contenedor', () => {
     expect(eco.puntoEquilibrio).toBeGreaterThan(0)
   })
 })
+
+describe('insumos con consumo (valor unitario × cantidad por unidad × volumen del mes)', () => {
+  const conInsumos = (insumos: NonNullable<EntradaPpto['insumos']>, clientes = CLIENTES) => {
+    const e = base()
+    e.clientes = clientes
+    e.gastos = GASTOS.filter((g) => g.nombre !== 'Pallets')
+    e.insumos = insumos
+    return calcularPresupuesto(e, 'corregido')
+  }
+  const pallets = { id: 1, nombre: 'Pallets', tipo: 'GENERAL', costoUnitario: 20766, base: 'POR_TONELADA', cantidadPorBase: 1, afectoIVA: true }
+
+  it('Pallets: $20.766 por unidad, 1 por tonelada vendida en el mes', () => {
+    const r = conInsumos([pallets])
+    const linea = r.egresos.find((l) => l.nombre === 'Pallets')!
+    // Octubre 2026: DBC 16,5 t + WHS 20 t + NADARRA 40 t = 76,5 t → mismo valor que el Excel.
+    expect(linea.valores[0]).toBeCloseTo(-76.5 * 20766, 6)
+    // Noviembre: solo DBC, 16,5 t.
+    expect(linea.valores[1]).toBeCloseTo(-16.5 * 20766, 6)
+  })
+  it('por contenedor: etiquetas = costo × unidades por contenedor × contenedores', () => {
+    const r = conInsumos([{ id: 2, nombre: 'Etiquetas', tipo: 'GENERAL', costoUnitario: 150, base: 'POR_CONTENEDOR', cantidadPorBase: 40, afectoIVA: true }])
+    expect(r.egresos.find((l) => l.nombre === 'Etiquetas')!.valores[0]).toBeCloseTo(-150 * 40 * 4, 6)
+  })
+  it('el antiaglomerante solo cuenta para los productos que lo usan', () => {
+    const clientes = CLIENTES.map((c) => ({ ...c, antiaglomeranteId: c.id === 3 ? 7 : 8 }))
+    const r = conInsumos([{ id: 7, nombre: 'Nuflow', tipo: 'ANTIAGLOMERANTE', costoUnitario: 1000, base: 'POR_TONELADA', cantidadPorBase: 0.5, afectoIVA: true }], clientes)
+    // Solo NADARRA (40 t en octubre) lleva Nuflow.
+    expect(r.egresos.find((l) => l.nombre === 'Nuflow')!.valores[0]).toBeCloseTo(-1000 * 0.5 * 40, 6)
+  })
+  it('el yodo solo cuenta para los productos yodados', () => {
+    const clientes = CLIENTES.map((c) => ({ ...c, yodada: c.id === 2 }))
+    const r = conInsumos([{ id: 9, nombre: 'Yodo', tipo: 'YODO', costoUnitario: 10000, base: 'POR_TONELADA', cantidadPorBase: 0.03, afectoIVA: true }], clientes)
+    expect(r.egresos.find((l) => l.nombre === 'Yodo')!.valores[0]).toBeCloseTo(-10000 * 0.03 * 20, 6)
+  })
+  it('un insumo sin costo o sin cantidad avisa y no suma', () => {
+    const r = conInsumos([{ ...pallets, id: 3, nombre: 'Sacos', costoUnitario: 3000, cantidadPorBase: null }])
+    expect(r.egresos.some((l) => l.nombre === 'Sacos')).toBe(false)
+    expect(r.advertencias.some((a) => a.includes('Sacos') && a.includes('cantidad por unidad'))).toBe(true)
+  })
+  it('un antiaglomerante que ningún producto usa no genera costo ni aviso', () => {
+    const r = conInsumos([{ id: 5, nombre: 'Harina de arroz', tipo: 'ANTIAGLOMERANTE', costoUnitario: null, base: 'POR_TONELADA', cantidadPorBase: null, afectoIVA: true }])
+    expect(r.advertencias.some((a) => a.includes('Harina de arroz'))).toBe(false)
+  })
+})

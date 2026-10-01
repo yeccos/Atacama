@@ -173,6 +173,12 @@ model Insumo {
   tipo          String   @default("GENERAL")
   // Costo neto por unidad, en CLP. Null = por completar (dispara advertencia).
   costoUnitario Decimal?
+  // Consumo: cuántas unidades se usan por cada unidad de la base. El costo del mes es
+  //   costoUnitario × cantidadPorBase × (toneladas vendidas | kg | contenedores | camiones del mes).
+  // Base: POR_TONELADA | POR_KG | POR_CONTENEDOR | POR_CAMION. cantidadPorBase null = por completar.
+  base            String   @default("POR_TONELADA")
+  cantidadPorBase Decimal?
+  afectoIVA       Boolean  @default(true)
   proveedorId   Int?
   proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
 

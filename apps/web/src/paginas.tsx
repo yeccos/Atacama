@@ -104,21 +104,28 @@ export const PAGINAS: Pagina[] = [
     extras: [
       {
         recurso: 'insumos', titulo: 'Antiaglomerantes', fijo: { tipo: 'ANTIAGLOMERANTE' },
-        ayuda: 'Catálogo de antiaglomerantes. Agrega los que uses (dióxido de silicio, Nuflow, harina de arroz...) y asígnalos a cada producto.',
+        ayuda: 'Catálogo de antiaglomerantes. El costo del mes se calcula solo: valor unitario × unidades por tonelada (o kg, contenedor) × lo que se venda con ese antiaglomerante. Agrega los que uses (dióxido de silicio, Nuflow, harina de arroz...) y asígnalos a cada producto.',
         columnas: [
           { campo: 'nombre', titulo: 'Antiaglomerante', ancho: 280 },
           { campo: 'unidad', titulo: 'Unidad', defecto: 'kg', ancho: 100 },
-          { campo: 'costoUnitario', titulo: 'Costo neto por unidad ($)', tipo: 'decimal', decimales: 0 },
+          { campo: 'costoUnitario', titulo: 'Valor unitario neto ($)', tipo: 'decimal', decimales: 0 },
+          { campo: 'base', titulo: 'Se consume por', tipo: 'opcion', opciones: ['POR_TONELADA', 'POR_KG', 'POR_CONTENEDOR', 'POR_CAMION'], defecto: 'POR_TONELADA', ancho: 170 },
+          { campo: 'cantidadPorBase', titulo: 'Unidades por cada una', tipo: 'decimal', decimales: 4, ancho: 170 },
+          { campo: 'afectoIVA', titulo: 'Afecto IVA', tipo: 'bool', defecto: true, ancho: 110 },
           { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
         ],
       },
       {
         recurso: 'insumos', titulo: 'Todos los insumos',
+        ayuda: 'Cada insumo se calcula solo en el presupuesto y el flujo: valor unitario × unidades por cada tonelada (o kg, contenedor, camión) × lo que se venda ese mes. Ej.: Pallets, $20.766 por unidad, 1 por tonelada. El yodo solo cuenta en los productos yodados, y cada antiaglomerante solo en los productos que lo usan.',
         columnas: [
           { campo: 'nombre', titulo: 'Insumo' },
           { campo: 'tipo', titulo: 'Tipo', tipo: 'opcion', opciones: ['GENERAL', 'ANTIAGLOMERANTE', 'YODO'], defecto: 'GENERAL', ancho: 170 },
           { campo: 'unidad', titulo: 'Unidad', defecto: 'kg', ancho: 100 },
-          { campo: 'costoUnitario', titulo: 'Costo neto por unidad ($)', tipo: 'decimal', decimales: 0 },
+          { campo: 'costoUnitario', titulo: 'Valor unitario neto ($)', tipo: 'decimal', decimales: 0 },
+          { campo: 'base', titulo: 'Se consume por', tipo: 'opcion', opciones: ['POR_TONELADA', 'POR_KG', 'POR_CONTENEDOR', 'POR_CAMION'], defecto: 'POR_TONELADA', ancho: 170 },
+          { campo: 'cantidadPorBase', titulo: 'Unidades por cada una', tipo: 'decimal', decimales: 4, ancho: 170 },
+          { campo: 'afectoIVA', titulo: 'Afecto IVA', tipo: 'bool', defecto: true, ancho: 110 },
           { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
         ],
       },
