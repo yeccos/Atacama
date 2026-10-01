@@ -10,8 +10,6 @@ import {
   sumarDias,
   type CobroFlujo,
   type EntradaPpto,
-  type ModoPpto,
-  type ResultadoPpto,
 } from '@atacama/core'
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
@@ -19,9 +17,6 @@ import { prisma } from './db'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const num = (x: unknown) => Number(x)
-
-/** Datos de referencia del Excel original, para la tarjeta de validación. */
-const REFERENCIA_EXCEL = { ventas2027: 419425000, margen2027: 88928777, margenMesInicial: 42715862 }
 
 async function parametros() {
   const filas = await prisma.parametro.findMany()
@@ -109,41 +104,19 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
     contenedores,
     camiones,
     bonoDescargaPorCamion: par.numero('bonoDescargaPorCamion', 0),
-    // La réplica del Excel usaba un precio promedio para los clientes con escalas (NADARRA = 1,453).
-    precioPlano: Object.fromEntries(
-      clientes
-        .filter((c) => c.escalas.length)
-        .map((c) => {
-          const d = (n: number) => c.escalas.filter((x) => x.nContenedor <= n).reduce((_, x) => x.pctDescuento, 0)
-          return [c.id, Math.round(((c.usdPorKg * (1 - d(1) / 100) + c.usdPorKg * (1 - d(2) / 100)) / 2) * 1000) / 1000]
-        }),
-    ),
   }
   return { version, entrada, clientes, par }
-}
-
-const resumen = (r: ResultadoPpto) => {
-  const suma = (xs: number[], anio: string) => xs.filter((_, i) => r.meses[i].startsWith(anio)).reduce((s, x) => s + x, 0)
-  const anio = r.meses.find((m) => m.startsWith('2027')) ? '2027' : r.meses[0].slice(0, 4)
-  return { anio, ventasAnio: suma(r.totalVentas, anio), margenAnio: suma(r.margen, anio), margenMesInicial: r.margen[0], mesInicial: r.meses[0] }
 }
 
 export function registrarPresupuesto(app: FastifyInstance) {
   app.get('/api/presupuesto/:id', async (req, reply) => {
     const { id } = req.params as { id: string }
-    const q = req.query as { modo?: string; tc?: string; sin?: string }
+    const q = req.query as { tc?: string; sin?: string }
     const c = await cargarEntrada(Number(id), { tc: q.tc ? Number(q.tc) : undefined, sinCliente: q.sin ? Number(q.sin) : undefined })
     if (!c) return reply.code(404).send({ error: 'La versión no existe' })
-    const modo: ModoPpto = q.modo === 'excel' ? 'excel' : 'corregido'
     return {
       version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc },
-      modo,
-      resultado: calcularPresupuesto(c.entrada, modo),
-      validacion: {
-        referenciaExcel: REFERENCIA_EXCEL,
-        excel: resumen(calcularPresupuesto(c.entrada, 'excel')),
-        corregido: resumen(calcularPresupuesto(c.entrada, 'corregido')),
-      },
+      resultado: calcularPresupuesto(c.entrada, 'corregido'),
     }
   })
 

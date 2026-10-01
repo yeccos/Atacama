@@ -21,13 +21,7 @@ interface Fila {
 
 interface Respuesta {
   version: { id: number; nombre: string; tc: number }
-  modo: 'excel' | 'corregido'
   resultado: ResultadoPpto
-  validacion: {
-    referenciaExcel: { ventas2027: number; margen2027: number; margenMesInicial: number }
-    excel: { anio: string; ventasAnio: number; margenAnio: number; margenMesInicial: number; mesInicial: string }
-    corregido: { anio: string; ventasAnio: number; margenAnio: number; margenMesInicial: number; mesInicial: string }
-  }
 }
 
 const mm = (n: number) => formatoNumero(Math.round(n))
@@ -58,7 +52,6 @@ const campo = (ym: string) => 'm_' + ym.replace('-', '_')
 export default function Presupuesto() {
   const [versiones, setVersiones] = useState<{ id: number; nombre: string }[]>([])
   const [versionId, setVersionId] = useState<number | null>(null)
-  const [modo, setModo] = useState<'corregido' | 'excel'>('corregido')
   const [tc, setTc] = useState('')
   const [sin, setSin] = useState('')
   const [datos, setDatos] = useState<Respuesta | null>(null)
@@ -75,7 +68,7 @@ export default function Presupuesto() {
   const cargar = useCallback(async () => {
     if (!versionId) return
     try {
-      const q = new URLSearchParams({ modo })
+      const q = new URLSearchParams()
       const tcNum = parseNumeroCL(tc)
       if (tcNum) q.set('tc', String(tcNum))
       if (sin) q.set('sin', sin)
@@ -85,7 +78,7 @@ export default function Presupuesto() {
     } catch (e) {
       setError((e as Error).message)
     }
-  }, [versionId, modo, tc, sin])
+  }, [versionId, tc, sin])
 
   useEffect(() => {
     cargar()
@@ -161,9 +154,6 @@ export default function Presupuesto() {
   const estiloFila = (p: RowClassParams) =>
     p.data?.tipo === 'titulo' ? { background: '#e2e8f0', fontWeight: 600 } : p.data?.tipo === 'total' ? { fontWeight: 700, background: '#f1f5f9' } : undefined
 
-  const v = datos?.validacion
-  const dif = (a: number, b: number) => (Math.abs(a - b) < 1.5 ? 'text-emerald-700' : 'text-red-700')
-
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-end gap-3">
@@ -172,13 +162,6 @@ export default function Presupuesto() {
           Versión
           <select className="campo mt-1" value={versionId ?? ''} onChange={(e) => setVersionId(Number(e.target.value))}>
             {versiones.map((x) => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-          </select>
-        </label>
-        <label className="text-xs text-slate-600">
-          Cálculo
-          <select className="campo mt-1" value={modo} onChange={(e) => setModo(e.target.value as any)}>
-            <option value="corregido">Corregido</option>
-            <option value="excel">Réplica del Excel (con sus errores)</option>
           </select>
         </label>
         <label className="text-xs text-slate-600">
@@ -201,42 +184,6 @@ export default function Presupuesto() {
         <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3">
           <p className="mb-1 text-sm font-semibold text-amber-900">Advertencias del cálculo</p>
           <ul className="list-disc pl-5 text-sm text-amber-900">{datos.resultado.advertencias.map((a, i) => <li key={i}>{a}</li>)}</ul>
-        </div>
-      )}
-
-      {v && (
-        <div className="mb-4 overflow-x-auto rounded border border-slate-200 bg-white">
-          <p className="border-b border-slate-200 px-3 py-2 text-sm font-semibold">
-            Validación contra el Excel (sin sensibilidad)
-          </p>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="px-3 py-1.5 font-medium"></th>
-                <th className="px-3 py-1.5 text-right font-medium">Excel original</th>
-                <th className="px-3 py-1.5 text-right font-medium">Réplica (con errores)</th>
-                <th className="px-3 py-1.5 text-right font-medium">Corregido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Ventas ' + v.excel.anio, v.referenciaExcel.ventas2027, v.excel.ventasAnio, v.corregido.ventasAnio],
-                ['Margen ' + v.excel.anio, v.referenciaExcel.margen2027, v.excel.margenAnio, v.corregido.margenAnio],
-                ['Margen ' + nombreMes(v.excel.mesInicial), v.referenciaExcel.margenMesInicial, v.excel.margenMesInicial, v.corregido.margenMesInicial],
-              ].map(([t, ref, rep, cor]) => (
-                <tr key={t as string} className="border-t border-slate-100">
-                  <td className="px-3 py-1.5">{t}</td>
-                  <td className="px-3 py-1.5 text-right">${mm(ref as number)}</td>
-                  <td className={`px-3 py-1.5 text-right ${dif(ref as number, rep as number)}`}>${mm(rep as number)}</td>
-                  <td className="px-3 py-1.5 text-right font-medium">${mm(cor as number)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="px-3 py-2 text-xs text-slate-500">
-            Verde: la réplica calza con el Excel. La diferencia con "Corregido" son los errores del Excel (inversiones y pintura fuera de la suma,
-            Kosher no cargado, flete a Nueva York, precio de NADARRA) y lo que el Excel no tenía (seguro de salud, bono de descarga).
-          </p>
         </div>
       )}
 
