@@ -49,7 +49,8 @@ export function contraparteDe(glosa: string): string | null {
 }
 
 const REGLAS: { patron: RegExp; solo?: 'abono' | 'cargo'; categoria: string }[] = [
-  { patron: /BICEMX|ENMXPOROPERACION|VENTAENMX/, solo: 'abono', categoria: 'Venta de dólares (BiceMX)' },
+  { patron: /BICEMX|ENMXPOROPERACION|VENTAENMX/, categoria: 'Venta de dólares (BiceMX)' },
+  { patron: /ABONODECAMBIOS|ORDENDEPAGORECIBIDA/, solo: 'abono', categoria: 'Cobro de cliente (USD)' },
   { patron: /PAGOPREVISIONAL|PREVISIONALNRO/, solo: 'cargo', categoria: 'Previred' },
   { patron: /PAGOSIINRO|PORPAGOSII|PAGOTGR/, solo: 'cargo', categoria: 'Impuestos (SII / TGR)' },
   { patron: /TESORERIAGENERA|60805000/, solo: 'abono', categoria: 'Devolución de IVA (Tesorería)' },

@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 
 export interface CartolaLeida {
   archivo: string
+  moneda: 'CLP' | 'USD'
   cuenta: string | null
   desde: string
   hasta: string
@@ -16,8 +17,8 @@ export interface CartolaLeida {
 
 interface Item { s: string; x: number; y: number; r: number }
 
-const montoPesos = (s: string): number | null =>
-  /^\d{1,3}(\.\d{3})*(,\d{2})?$/.test(s) ? Math.round(Number(s.replace(/\./g, '').replace(',', '.'))) : null
+const montoNum = (s: string): number | null =>
+  /^\d{1,3}(\.\d{3})*(,\d{2})?$/.test(s) ? Number(s.replace(/\./g, '').replace(',', '.')) : null
 const aIso = (d: string) => d.split('/').reverse().join('-')
 
 export async function leerPdf(archivo: File): Promise<CartolaLeida> {
@@ -28,6 +29,8 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
 
   let desde = '', hasta = '', cuenta: string | null = null
   let saldoInicial: number | null = null
+  let saldoResumen: number | null = null
+  let usd = false
   let cab: { hC: Item; hA: Item; hD: Item } | null = null
   let ultimaFecha: string | null = null
   const crudos: { fecha: string; nDoc: string; glosa: string; cargo: number; abono: number }[] = []
@@ -41,7 +44,8 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
     if (!desde) {
       const fechas = it.filter((i) => /^\d\d\/\d\d\/\d{4}$/.test(i.s)).map((i) => i.s)
       if (fechas.length >= 2) [desde, hasta] = fechas.sort((a, b) => aIso(a).localeCompare(aIso(b))).filter((_, i, a) => i === 0 || i === a.length - 1)
-      cuenta = it.find((i) => /^\d\d-\d{5}-\d$/.test(i.s))?.s ?? cuenta
+      cuenta = it.find((i) => /^\d{2,3}(-\d{2,5}){1,2}-\d$/.test(i.s))?.s ?? cuenta
+      usd = it.some((i) => /^D[OÓ]LARES?$/i.test(i.s) || /^USD$/i.test(i.s))
     }
 
     const hC = it.find((i) => i.s === 'CARGOS' && it.some((j) => j.s === 'ABONOS' && Math.abs(j.y - i.y) < 3))
@@ -52,7 +56,7 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
     }
     if (!cab) continue
     const { hC: c, hA: a, hD: d } = cab
-    const res = it.find((i) => i.s === 'RESUMEN')
+    const res = it.find((i) => /^RESUMEN/.test(i.s))
     const yTope = hC ? hC.y - 2 : 10000
     const yBase = res ? res.y : -1
     const cuerpo = it.filter((i) => i.y < yTope && i.y > yBase)
@@ -60,11 +64,16 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
     const fechasCol = cuerpo.filter((i) => /^\d\d\/\d\d$/.test(i.s) && i.x < 50).sort((q, w) => w.y - q.y)
     const saldoI = cuerpo.find((i) => i.s === 'Saldo' && cuerpo.some((j) => j.s === 'Inicial' && Math.abs(j.y - i.y) < 2))
     if (saldoI) {
-      const v = cuerpo.find((j) => montoPesos(j.s) !== null && Math.abs(j.y - saldoI.y) < 2 && j.x > a.r - 40)
-      if (v) saldoInicial = montoPesos(v.s)
+      const v = cuerpo.find((j) => montoNum(j.s) !== null && Math.abs(j.y - saldoI.y) < 2 && j.x > a.r - 40)
+      if (v) saldoInicial = montoNum(v.s)
+    }
+    // Cuentas en dólares: el saldo inicial puede venir solo en el resumen (primer número a la izquierda).
+    if (res && saldoResumen === null) {
+      const nums = it.filter((i) => i.y < res.y && montoNum(i.s) !== null).sort((q, w) => q.x - w.x)
+      if (nums[0] && nums[0].x < 130) saldoResumen = montoNum(nums[0].s)
     }
     const lado = (i: Item) => (i.r >= c.x - 12 && i.r <= c.r + 12 ? 'C' : i.r >= a.x - 12 && i.r <= a.r + 12 ? 'A' : null)
-    const esMonto = (i: Item) => montoPesos(i.s) !== null && i.x > d.x + 120
+    const esMonto = (i: Item) => montoNum(i.s) !== null && i.x > d.x + 120
 
     // Cada movimiento empieza con una palabra en la columna de descripción; su monto cae dentro de su bloque vertical.
     const KW = /^(Transf\.?|Pago|Abono|Cargo|Venta|Compra|Traspaso|Dep|Giro|Comis|Cheque|Impuesto|Intereses)/i
@@ -86,11 +95,12 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
       const dm = arriba.length ? arriba[arriba.length - 1].s : ultimaFecha
       if (!dm) return
       ultimaFecha = dm
-      const v = montoPesos(monto.s)!
+      const v = Math.round(montoNum(monto.s)! * (usd ? 100 : 1))
       crudos.push({ fecha: dm, nDoc, glosa, cargo: lado(monto) === 'C' ? v : 0, abono: lado(monto) === 'A' ? v : 0 })
     })
   }
-  if (!desde || saldoInicial === null) throw new Error(`${archivo.name}: no se reconoce como cartola del Bice en pesos`)
+  if (saldoInicial === null && saldoResumen !== null) saldoInicial = Math.round(saldoResumen * (usd ? 100 : 1))
+  if (!desde || saldoInicial === null) throw new Error(`${archivo.name}: no se reconoce como cartola del Bice`)
 
   const [anioDesde, anioHasta] = [Number(desde.slice(6)), Number(hasta.slice(6))]
   const mesHasta = Number(hasta.slice(3, 5))
@@ -101,7 +111,7 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
     saldo += m.abono - m.cargo
     return { ...m, fecha: `${anio}-${m.fecha.slice(3, 5)}-${m.fecha.slice(0, 2)}`, saldo }
   })
-  return { archivo: archivo.name, cuenta, desde: aIso(desde), hasta: aIso(hasta), saldoInicial, saldoFinal: saldo, movimientos }
+  return { archivo: archivo.name, moneda: usd ? 'USD' : 'CLP', cuenta, desde: aIso(desde), hasta: aIso(hasta), saldoInicial, saldoFinal: saldo, movimientos }
 }
 
 /** Cartola provisoria del Bice (Excel): trae lo último, con el más reciente primero. */
@@ -127,7 +137,7 @@ export async function leerExcel(archivo: File): Promise<CartolaLeida> {
   let saldo = saldoInicial
   const movimientos = brutos.map((m) => ({ ...m, saldo: (saldo += m.abono - m.cargo) }))
   const [d, h] = filas[iFechas + 1]
-  return { archivo: archivo.name, cuenta: nCuenta, desde: dmy(d), hasta: dmy(h), saldoInicial, saldoFinal: saldo, movimientos }
+  return { archivo: archivo.name, moneda: 'CLP', cuenta: nCuenta, desde: dmy(d), hasta: dmy(h), saldoInicial, saldoFinal: saldo, movimientos }
 }
 
 export async function leerCartola(archivo: File): Promise<CartolaLeida> {

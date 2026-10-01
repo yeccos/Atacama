@@ -20,7 +20,7 @@ interface Resumen {
 }
 
 const CATEGORIAS = ['Materia prima', 'Proveedores', 'Remuneraciones', 'Retiros de socios', 'Honorarios', 'Transporte y fletes', 'Aduana y exportación', 'Arriendo y servicios', 'Créditos y cuotas', 'Otros']
-const clp = (x: number) => '$' + formatoNumero(Math.round(x))
+const fmt = (x: number, moneda = 'CLP') => (moneda === 'USD' ? 'US$' + formatoNumero(x / 100, 2) : '$' + formatoNumero(Math.round(x)))
 type Vista = 'pagos' | 'categorias' | 'meses'
 
 export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
@@ -34,6 +34,8 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
   const [mensaje, setMensaje] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const entrada = useRef<HTMLInputElement>(null)
+  const moneda = resumen?.cuenta.moneda ?? 'CLP'
+  const clp = (x: number) => fmt(x, moneda)
   const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([])
   useEffect(() => {
     api('/r/proveedores').then(setProveedores)
@@ -50,9 +52,9 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
 
   useEffect(() => {
     api<Cuenta[]>('/r/cuentasBancarias').then((c) => {
-      const clps = c.filter((x) => x.moneda === 'CLP')
-      setCuentas(clps)
-      if (clps.length) setCuentaId((clps.find((x) => x.numero === '06-01766-5') ?? clps[0]).id)
+      const con = c.filter((x) => x.numero)
+      setCuentas(con)
+      if (con.length) setCuentaId((con.find((x) => x.numero === '06-01766-5') ?? con[0]).id)
     })
   }, [])
 
@@ -76,17 +78,16 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
     try {
       const todas: CartolaLeida[] = []
       for (const f of Array.from(archivos)) todas.push(await leerCartola(f))
-      todas.sort((a, b) => a.desde.localeCompare(b.desde) || a.hasta.localeCompare(b.hasta))
-      // Cada cartola debe partir con el saldo con que terminó la anterior.
+      todas.sort((a, b) => (a.cuenta ?? '').localeCompare(b.cuenta ?? '') || a.desde.localeCompare(b.desde) || a.hasta.localeCompare(b.hasta))
+      // Cada cartola debe partir con el saldo con que terminó la anterior de su misma cuenta.
       const av: string[] = []
       todas.forEach((c, i) => {
-        const dif = Math.abs(c.saldoInicial - (i > 0 ? todas[i - 1].saldoFinal : c.saldoInicial))
-        if (i > 0 && dif > 0) av.push(`${c.archivo}: parte con ${clp(c.saldoInicial)} pero la anterior terminó en ${clp(todas[i - 1].saldoFinal)} (diferencia ${clp(dif)}). Puede faltar una cartola.`)
+        const ant = todas[i - 1]
+        if (ant && ant.cuenta === c.cuenta && c.saldoInicial !== ant.saldoFinal) {
+          av.push(`${c.archivo}: parte con ${fmt(c.saldoInicial, c.moneda)} pero la anterior terminó en ${fmt(ant.saldoFinal, c.moneda)}. Puede faltar una cartola.`)
+        }
+        if (!cuentas.some((x) => x.numero === c.cuenta)) av.push(`${c.archivo}: la cuenta ${c.cuenta ?? 'sin número'} no está registrada (créala en Cuentas bancarias con ese número).`)
       })
-      const cuenta = cuentas.find((x) => x.id === cuentaId)
-      for (const c of todas) {
-        if (c.cuenta && cuenta?.numero && c.cuenta !== cuenta.numero) av.push(`${c.archivo}: es de la cuenta ${c.cuenta}, no de ${cuenta.numero}.`)
-      }
       setAvisos(av)
       setLeidas(todas)
     } catch (e) {
@@ -99,7 +100,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
   }
 
   async function importar() {
-    if (!leidas || !cuentaId) return
+    if (!leidas) return
     setOcupado(true)
     setError('')
     try {
@@ -107,16 +108,19 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
       let duplicados = 0
       for (let i = 0; i < leidas.length; i++) {
         const c = leidas[i]
+        const cuenta = cuentas.find((x) => x.numero === c.cuenta)
+        if (!cuenta) throw new Error(`${c.archivo}: la cuenta ${c.cuenta ?? 'sin número'} no está registrada`)
+        const ultimaDeLaCuenta = !leidas.slice(i + 1).some((o) => o.cuenta === c.cuenta)
         const ultimo = c.movimientos.at(-1)
-        const r = await api(`/bancos/${cuentaId}/importar`, 'POST', {
+        const r = await api(`/bancos/${cuenta.id}/importar`, 'POST', {
           movimientos: c.movimientos,
-          saldoFinal: i === leidas.length - 1 ? c.saldoFinal : undefined,
-          fechaFinal: i === leidas.length - 1 ? (ultimo?.fecha ?? c.hasta) : undefined,
+          saldoFinal: ultimaDeLaCuenta ? c.saldoFinal : undefined,
+          fechaFinal: ultimaDeLaCuenta ? (ultimo?.fecha ?? c.hasta) : undefined,
         })
         nuevos += r.nuevos
         duplicados += r.duplicados
       }
-      setMensaje(`Se importaron ${nuevos} movimientos nuevos${duplicados ? ` (${duplicados} ya estaban)` : ''}. El flujo de caja ya parte con el saldo de la última cartola.`)
+      setMensaje(`Se importaron ${nuevos} movimientos nuevos${duplicados ? ` (${duplicados} ya estaban)` : ''}. El flujo de caja ya parte con el saldo de la última cartola en pesos.`)
       setLeidas(null)
       await cargar()
       alCambiar?.()
@@ -160,8 +164,8 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
                   <td className="pr-3">{c.archivo.slice(-34)}</td>
                   <td className="pr-3">{formatoFecha(c.desde)} a {formatoFecha(c.hasta)}</td>
                   <td className="text-right">{c.movimientos.length}</td>
-                  <td className="text-right">{clp(c.saldoInicial)}</td>
-                  <td className="text-right">{clp(c.saldoFinal)}</td>
+                  <td className="text-right">{fmt(c.saldoInicial, c.moneda)}</td>
+                  <td className="text-right">{fmt(c.saldoFinal, c.moneda)}</td>
                 </tr>
               ))}
             </tbody>
