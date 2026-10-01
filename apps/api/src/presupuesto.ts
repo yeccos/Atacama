@@ -344,6 +344,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     rezagoIVAMeses: par.numero('rezagoIVAMeses', 1),
     mesesSinFin: par.numero('mesesCuotaSinFin', 12),
     saldoMinimo: par.numero('saldoMinimoCaja', 0),
+    mpPagadoHasta: par.texto('mpPagadaHasta', '') || undefined,
   }
 
   const params = {

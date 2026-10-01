@@ -158,6 +158,8 @@ export interface EntradaFlujo {
   /** Meses que se proyecta una deuda sin fecha de término. */
   mesesSinFin: number
   saldoMinimo: number
+  /** Hasta qué mes ('aaaa-mm') la materia prima ya está pagada: sigue siendo costo, pero no una salida de caja futura. */
+  mpPagadoHasta?: string
 }
 
 export interface LineaFlujo {
@@ -222,6 +224,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const desfase = Math.round((l.diasPago ?? 0) / 30)
     const valores = e.meses.map((m) => {
       const i = pp(m) - desfase
+      if (l.tipo === 'MP' && e.mpPagadoHasta && i >= 0 && e.ppto.meses[i] <= e.mpPagadoHasta) return 0
       return i < 0 || l.valores[i] === 0 ? 0 : -l.valores[i] * (l.afectoIVA ? factorIVA : 1)
     })
     e.meses.forEach((m, i) => {

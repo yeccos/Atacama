@@ -8,3 +8,6 @@ apps/api/adjuntos
 # Documentos financieros: nunca al repositorio
 facturas/*
 !facturas/LEEME.txt
+
+cartolas/*
+!cartolas/LEEME.txt

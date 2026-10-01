@@ -8,6 +8,7 @@ import { aplicarValoresDeFacturas, fijarIFSEnAgosto } from './correcciones'
 import { completarFacturasSep2026 } from './facturas'
 import { ajustarCobrosMexicoNadarra } from './cobros'
 import { completarFase2 } from './fase2'
+import { marcarMPPagada } from './mpPagada'
 import { completarSemanalYDBC } from './semanal'
 import { completarAntiaglomerantes, completarInsumosConsumo } from './productos'
 
@@ -36,6 +37,7 @@ async function main() {
     await fijarIFSEnAgosto(prisma)
     await completarSemanalYDBC(prisma)
     await ajustarCobrosMexicoNadarra(prisma)
+    await marcarMPPagada(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
   }
@@ -369,6 +371,7 @@ async function main() {
   await fijarIFSEnAgosto(prisma)
   await completarSemanalYDBC(prisma)
   await ajustarCobrosMexicoNadarra(prisma)
+  await marcarMPPagada(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
 

@@ -89,6 +89,8 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
         l.tipo === 'MP' ? sumarDias(etd, -p.diasProduccionAntesETD)
         : l.tipo === 'VARIABLE' || l.tipo === 'FLETE' ? etd
         : fechaDia(ym, p.diaPagoFijos)
+      // La materia prima ya pagada sigue dando IVA crédito, pero no sale de la caja.
+      if (l.tipo === 'MP' && e.mpPagadoHasta && ym <= e.mpPagadoHasta) return
       egreso(sumarDias(fecha, l.diasPago ?? 0), l.clave, l.nombre, neto * (l.afectoIVA ? factorIVA : 1))
     })
   }
