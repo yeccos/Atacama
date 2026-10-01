@@ -36,6 +36,8 @@ interface Props extends ConfigMaestro {
   /** Valores fijos: filtran la lista y se aplican a los registros nuevos (p. ej. clienteId). */
   fijo?: Record<string, unknown>
   alSeleccionar?: (fila: any | null) => void
+  /** Se llama después de crear, editar, eliminar o importar (para recalcular reportes). */
+  alCambiar?: () => void
 }
 
 type Opciones = Record<string, { id: number; texto: string }[]>
@@ -91,7 +93,7 @@ function leer(col: Col, texto: unknown, opciones: Opciones, fila?: any): unknown
   return String(texto)
 }
 
-export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSeleccionar }: Props) {
+export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSeleccionar, alCambiar }: Props) {
   const [filas, setFilas] = useState<any[]>([])
   const [opciones, setOpciones] = useState<Opciones>({})
   const [error, setError] = useState('')
@@ -169,6 +171,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
     try {
       await api(`/r/${recurso}/${e.data.id}`, 'PUT', { [e.colDef.field!]: e.newValue })
       setError('')
+      alCambiar?.()
     } catch (err) {
       setError((err as Error).message)
       cargar()
@@ -187,6 +190,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
       await api(`/r/${recurso}`, 'POST', cuerpo)
       setNuevo(null)
       cargar()
+      alCambiar?.()
     } catch (err) {
       setError((err as Error).message)
     }
@@ -199,6 +203,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
       setSeleccion(null)
       alSeleccionar?.(null)
       cargar()
+      alCambiar?.()
     } catch (err) {
       setError((err as Error).message)
     }
@@ -243,6 +248,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
         errores.push(`Fila ${i + 2}: ${(err as Error).message}`)
       }
     }
+    alCambiar?.()
     setError(errores.length ? `Importadas ${ok} filas. ${errores.slice(0, 5).join(' · ')}` : '')
     cargar()
   }

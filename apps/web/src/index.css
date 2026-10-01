@@ -13,3 +13,10 @@ body {
 .campo {
   @apply w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm;
 }
+
+.celda-editable {
+  @apply bg-sky-50 text-sky-900;
+}
+.columna-total {
+  @apply bg-slate-50 font-semibold;
+}

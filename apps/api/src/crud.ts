@@ -28,6 +28,8 @@ export const RECURSOS: Record<string, string> = {
   empleados: 'Empleado',
   comprasMP: 'CompraMPPlan',
   embarques: 'Embarque',
+  hitosCobro: 'HitoCobro',
+  partidasFlujo: 'PartidaFlujo',
   camionesMP: 'CamionMP',
   proveedores: 'Proveedor',
   deudas: 'Deuda',

@@ -131,6 +131,9 @@ model Destino {
   puerto String @unique
   pais   String
 
+  // Días desde el embarque (ETD) hasta la llegada (ETA); define cuándo gatilla el hito de llegada.
+  diasTransito Int @default(20)
+
   tarifas  TarifaFlete[]
   clientes Cliente[]
 }
@@ -208,6 +211,7 @@ model Cliente {
   hitos     HitoPagoCliente[]
   reglas    ReglaFrecuencia[]
   embarques Embarque[]
+  contenedoresMes ContenedorMes[]
 }
 
 model PrecioCliente {
@@ -257,6 +261,7 @@ model VersionPresupuesto {
   gastos    GastoDriver[]
   embarques Embarque[]
   compras   CompraMPPlan[]
+  contenedores ContenedorMes[]
 }
 
 model ReglaFrecuencia {
@@ -294,6 +299,12 @@ model GastoDriver {
   soloFlujo   Boolean @default(false)
   activo      Boolean @default(true)
   nota        String?
+  // Cómo se comportaba esta línea en el Excel original (para la réplica de validación):
+  // NORMAL | FUERA_DE_TOTAL (signo positivo y fuera de la suma de egresos) | NO_EXISTE (no estaba en el Excel)
+  modoExcel   String  @default("NORMAL")
+  // Si la línea es la cuota de una deuda, el flujo no la cuenta dos veces.
+  deudaId     Int?
+  deuda       Deuda?  @relation(fields: [deudaId], references: [id])
 }
 
 model Empleado {
@@ -316,6 +327,28 @@ model CompraMPPlan {
   camiones  Int
 
   @@unique([versionId, origenId, mes])
+}
+
+// Cantidad de contenedores de un cliente en un mes. Gana sobre la regla de frecuencia (edición en la grilla).
+model ContenedorMes {
+  id          Int      @id @default(autoincrement())
+  versionId   Int
+  version     VersionPresupuesto @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  clienteId   Int
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  mes         DateTime
+  contenedores Int
+
+  @@unique([versionId, clienteId, mes])
+}
+
+// Partida manual del flujo de caja: ingreso (+) o egreso (-) puntual, en CLP.
+model PartidaFlujo {
+  id       Int      @id @default(autoincrement())
+  fecha    DateTime
+  concepto String
+  monto    Int
+  nota     String?
 }
 
 // ───────────── Embarques ─────────────
@@ -529,6 +562,7 @@ model Deuda {
   nota          String?
 
   cuotas CuotaDeuda[]
+  gastos GastoDriver[]
 }
 
 model CuotaDeuda {

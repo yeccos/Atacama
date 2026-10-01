@@ -2,7 +2,9 @@ import { formatoFecha } from '@atacama/core'
 import { useEffect, useState } from 'react'
 import { api, sesion } from './api'
 import Login from './Login'
+import Flujo from './Flujo'
 import Maestro from './Maestro'
+import Presupuesto from './Presupuesto'
 import { PAGINAS, type Pagina } from './paginas'
 
 function PaginaMaestro({ pagina }: { pagina: Pagina }) {
@@ -179,6 +181,8 @@ function Auditoria() {
 
 const ESPECIALES = [
   { id: 'inicio', menu: 'Inicio', grupo: '' },
+  { id: 'presupuesto', menu: 'Presupuesto', grupo: 'Reportes' },
+  { id: 'flujo', menu: 'Flujo de caja', grupo: 'Reportes' },
   { id: 'incoterms', menu: 'Incoterms', grupo: 'Comercial' },
   { id: 'auditoria', menu: 'Auditoría', grupo: 'Configuración' },
 ]
@@ -196,7 +200,7 @@ export default function App() {
   if (!conSesion) return <Login alEntrar={() => setConSesion(true)} />
 
   const menu = [...ESPECIALES, ...PAGINAS]
-  const grupos = ['', 'Comercial', 'Producción', 'Presupuesto', 'Proveedores', 'Bancos', 'Configuración']
+  const grupos = ['', 'Reportes', 'Comercial', 'Producción', 'Presupuesto', 'Proveedores', 'Bancos', 'Configuración']
   const pagina = PAGINAS.find((p) => p.id === actual)
 
   async function salir() {
@@ -227,6 +231,8 @@ export default function App() {
       </nav>
       <main className="min-w-0 flex-1 p-6">
         {actual === 'inicio' && <Inicio />}
+        {actual === 'presupuesto' && <Presupuesto />}
+        {actual === 'flujo' && <Flujo />}
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'auditoria' && <Auditoria />}
         {pagina && <PaginaMaestro key={pagina.id} pagina={pagina} />}

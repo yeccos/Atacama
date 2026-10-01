@@ -5,6 +5,7 @@ import Fastify from 'fastify'
 import { registrarAdvertencias } from './advertencias'
 import { registrarAuth } from './auth'
 import { registrarCrud } from './crud'
+import { registrarPresupuesto } from './presupuesto'
 
 const produccion = process.env.NODE_ENV === 'production'
 
@@ -15,6 +16,7 @@ const app = Fastify({ logger: { level: 'warn' }, trustProxy: produccion })
 registrarAuth(app)
 registrarCrud(app)
 registrarAdvertencias(app)
+registrarPresupuesto(app)
 
 // En producción el mismo servidor entrega la web ya compilada (apps/web/dist).
 const web = fileURLToPath(new URL('../../web/dist', import.meta.url))
