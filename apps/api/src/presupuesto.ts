@@ -37,7 +37,7 @@ interface Opciones {
   sinCliente?: number
 }
 
-async function cargarEntrada(versionId: number, op: Opciones = {}) {
+export async function cargarEntrada(versionId: number, op: Opciones = {}) {
   const version = await prisma.versionPresupuesto.findUnique({ where: { id: versionId } })
   if (!version) return null
   const par = await parametros()
