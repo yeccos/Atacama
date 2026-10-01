@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clasificarMovimiento, contraparteDe } from './index'
+import { clasificarMovimiento, contraparteDe, esEmpleado } from './index'
 
 const PROV = [{ id: 1, nombre: 'Servitral' }, { id: 2, nombre: 'Albemarle' }, { id: 3, nombre: 'SQM Industrial' }]
 
@@ -17,5 +17,23 @@ describe('cartola bancaria', () => {
     expect(clasificarMovimiento('Pago Previsional Nro 247271220, via INTERNET', 1505889, 0, PROV).categoria).toBe('Previred')
     expect(clasificarMovimiento('Abono por Transferencia via CCA, originador Rut: 60805000-0 Nombre: TESORERIA GENERA', 0, 2115144, PROV).categoria).toBe('Devolución de IVA (Tesorería)')
     expect(clasificarMovimiento('cuenta 1 B.Santande, Persona X, Rut 1-9', 100, 0, PROV).categoria).toBeNull()
+  })
+})
+
+describe('pagos a empleados', () => {
+  const EMP = [
+    { nombre: 'Manuel Errázuriz L.', liquido: 5035027 },
+    { nombre: 'Manuel Errázuriz S.', liquido: 1000000 },
+    { nombre: 'Daniela Ramírez', liquido: 1228147 },
+  ]
+  it('distingue a padre e hijo por la inicial del segundo apellido', () => {
+    expect(clasificarMovimiento('cuenta 1 B.Falabell, MANUEL JOSE ERRAZURIZ LAGOS, Rut 7.160.740-2, el 01-09', 5052486, 0, [], EMP).categoria).toBe('Remuneraciones')
+    expect(clasificarMovimiento('cuenta 1 B.Falabell, MANUEL JOSE ERRAZURIZ SAAVEDRA, Rut 16.942.086-6, el 30-09', 1000000, 0, [], EMP).categoria).toBe('Remuneraciones')
+    expect(esEmpleado('MANUEL JOSE ERRAZURIZ SAAVEDRA', EMP[0])).toBe(false)
+    expect(esEmpleado('MANUEL JOSE ERRAZURIZ LAGOS', EMP[1])).toBe(false)
+  })
+  it('lo chico es reembolso, lo grande es sueldo', () => {
+    expect(clasificarMovimiento('cuenta 1 B.Santande, DANIELA RAMIREZ Z, Rut 15.566.009-0, el 15-09', 29300, 0, [], EMP).categoria).toBe('Reembolsos de personal')
+    expect(clasificarMovimiento('cuenta 1 B.Santande, DANIELA RAMIREZ Z, Rut 15.566.009-0, el 30-09', 1244714, 0, [], EMP).categoria).toBe('Remuneraciones')
   })
 })

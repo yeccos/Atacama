@@ -7,6 +7,24 @@ export interface ProveedorBanco {
   nombre: string
 }
 
+export interface EmpleadoBanco {
+  nombre: string | null
+  liquido: number | null
+}
+
+/** ¿La contraparte de la glosa es este empleado? Compara nombre, apellido y la inicial del segundo apellido ("Errázuriz L."). */
+export function esEmpleado(contraparte: string | null, empleado: EmpleadoBanco): boolean {
+  if (!contraparte || !empleado.nombre) return false
+  const palabras = contraparte.split(/\s+/).map(compacto).filter(Boolean)
+  const nombre = empleado.nombre.replace(/\./g, ' ').split(/\s+/).map(compacto).filter(Boolean)
+  if (nombre.length < 2) return false
+  const [primero, apellido, inicial] = nombre
+  const iApellido = palabras.indexOf(apellido)
+  if (!palabras.includes(primero) || iApellido < 0) return false
+  if (inicial && inicial.length === 1) return palabras.slice(iApellido + 1).some((p) => p.startsWith(inicial))
+  return true
+}
+
 export interface Clasificacion {
   contraparte: string | null
   categoria: string | null
@@ -45,6 +63,7 @@ export function clasificarMovimiento(
   cargo: number,
   abono: number,
   proveedores: ProveedorBanco[],
+  empleados: EmpleadoBanco[] = [],
 ): Clasificacion {
   const contraparte = contraparteDe(glosa)
   const c = compacto(glosa)
@@ -58,7 +77,10 @@ export function clasificarMovimiento(
     .find((p) => base.includes(compacto(p.nombre)))
   if (prov && lado === 'cargo') proveedorId = prov.id
   const regla = REGLAS.find((r) => r.patron.test(c) && (!r.solo || r.solo === lado))
-  const categoria = regla ? regla.categoria : proveedorId ? 'Proveedores' : null
+  // Pagos a empleados: el sueldo es lo grande (al menos 40% del líquido); lo chico son reembolsos y gastos.
+  const emp = lado === 'cargo' && !regla ? empleados.find((e) => esEmpleado(contraparte, e)) : undefined
+  const categoriaEmpleado = emp ? (emp.liquido && cargo < emp.liquido * 0.4 ? 'Reembolsos de personal' : 'Remuneraciones') : null
+  const categoria = regla ? regla.categoria : categoriaEmpleado ?? (proveedorId ? 'Proveedores' : null)
   return { contraparte, categoria, proveedorId }
 }
 

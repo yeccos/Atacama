@@ -24,6 +24,7 @@ export function registrarBancos(app: FastifyInstance) {
       }
     }
     const proveedores = await prisma.proveedor.findMany({ select: { id: true, nombre: true } })
+    const empleados = await prisma.empleado.findMany({ where: { activo: true }, select: { nombre: true, liquido: true } })
     const existentes = new Set((await prisma.movimientoBanco.findMany({ where: { cuentaId }, select: { hash: true } })).map((x) => x.hash))
     const ordinales = new Map<string, number>()
     let nuevos = 0
@@ -37,7 +38,7 @@ export function registrarBancos(app: FastifyInstance) {
         duplicados++
         continue
       }
-      const c = clasificarMovimiento(m.glosa, m.cargo, m.abono, proveedores)
+      const c = clasificarMovimiento(m.glosa, m.cargo, m.abono, proveedores, empleados)
       await prisma.movimientoBanco.create({
         data: {
           cuentaId, fecha: new Date(m.fecha + 'T00:00:00.000Z'), glosa: m.glosa, nDoc: m.nDoc || null, cargo: m.cargo, abono: m.abono,
