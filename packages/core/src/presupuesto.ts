@@ -4,6 +4,7 @@
 //  - "corregido": las reglas del negocio, sin los errores del Excel.
 //  - "excel": réplica del Excel original, con sus errores, para validar que las cifras calzan.
 import { asumeCosto, totalPedidoUsdCent, type Escala } from './comercial'
+import { formatoNumero } from './formato'
 
 export type ModoPpto = 'corregido' | 'excel'
 
@@ -99,6 +100,9 @@ export interface LineaPpto {
   /** Egreso de caja que no va al EERR (inversiones, cuotas de deuda). */
   soloFlujo?: boolean
   deudaId?: number | null
+  /** Cómo se calcula la línea, en palabras, y la pantalla donde se editan sus datos. */
+  formula?: string
+  editarEn?: string
   tipo: 'MP' | 'VARIABLE' | 'FLETE' | 'REMUNERACION' | 'FIJO'
 }
 
@@ -120,6 +124,28 @@ export interface ResultadoPpto {
 }
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
+
+const n0 = (x: number) => formatoNumero(x, Number.isInteger(x) ? 0 : 2)
+const unidadMoneda = (moneda: string, x: number) => (moneda === 'UF' ? n0(x) + ' UF' : moneda === 'USD' ? 'US$' + n0(x) : '$' + n0(x))
+
+/** Explica en palabras cómo se calcula un gasto según su driver. */
+function formulaGasto(g: GastoIn): string {
+  const f = unidadMoneda(g.moneda, g.valorFijo)
+  const v = unidadMoneda(g.moneda, g.valorVariable)
+  const dependeDelIncoterm = g.tipoCosto ? ' (solo los clientes cuyo incoterm incluye este costo)' : ''
+  switch (g.driver) {
+    case 'FIJO_MENSUAL': return `${f} fijos cada mes`
+    case 'ANUAL_PRORRATEADO': return `${f} al año ÷ 12`
+    case 'ANUAL_MES': return g.mesEspecifico ? `${f} una vez al año, en el mes ${g.mesEspecifico}` : `${f} una vez al año; falta definir el mes`
+    case 'POR_CONTENEDOR': return `${v} × contenedores del mes${dependeDelIncoterm}`
+    case 'POR_KG': return `${v} × kg vendidos en el mes`
+    case 'POR_TONELADA': return `${v} × toneladas vendidas en el mes`
+    case 'POR_TON_MP': return `${v} × toneladas de materia prima consumidas`
+    case 'POR_CAMION': return `${v} × camiones de materia prima del mes`
+    case 'FIJO_MAS_CONTENEDOR': return `${f} fijos + ${v} × contenedores del mes`
+    default: return g.driver
+  }
+}
 
 function convertir(valor: number, moneda: string, tc: number, uf: number): number {
   return moneda === 'USD' ? valor * tc : moneda === 'UF' ? valor * uf : valor
@@ -168,7 +194,10 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       return -ton * (o.usdPorTon + o.fleteUsdPorTon) * e.tc
     })
     if (valores.some((v) => v !== 0)) {
-      egresos.push({ clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP' })
+      egresos.push({
+        clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp',
+        formula: `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (US$${n0(o.usdPorTon)} + US$${n0(o.fleteUsdPorTon)} de flete) × dólar`,
+      })
     }
   }
 
@@ -196,7 +225,12 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
         const monto = ins.costoUnitario! * ins.cantidadPorBase! * volumen(i)
         return monto === 0 ? 0 : -monto
       })
-      egresos.push({ clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE' })
+      const alcance = ins.tipo === 'ANTIAGLOMERANTE' ? ', solo de los productos que usan este antiaglomerante' : ins.tipo === 'YODO' ? ', solo de los productos yodados' : ''
+      const por = ins.base === 'POR_KG' ? 'kg vendidos' : ins.base === 'POR_CONTENEDOR' ? 'contenedores' : ins.base === 'POR_CAMION' ? 'camiones' : 'toneladas vendidas'
+      egresos.push({
+        clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE', editarEn: 'productos',
+        formula: `Insumo: $${n0(ins.costoUnitario)} por unidad × ${n0(ins.cantidadPorBase)} unidades por cada ${ins.base === 'POR_TONELADA' ? 'tonelada' : ins.base === 'POR_KG' ? 'kg' : ins.base === 'POR_CONTENEDOR' ? 'contenedor' : 'camión'} × ${por} del mes${alcance}`,
+      })
     }
   }
 
@@ -210,6 +244,8 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       valores: e.meses.map((_, i) => -c.fleteUsdPorCont! * cont(c, i) * e.tc),
       afectoIVA: false,
       tipo: 'FLETE',
+      editarEn: 'destinos',
+      formula: `Contenedores del mes × US$${n0(c.fleteUsdPorCont)} de flete × dólar. Solo porque el incoterm de ${c.nombre} (${c.incoterm}) incluye el flete marítimo`,
     })
   }
 
@@ -224,6 +260,8 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     valores: e.meses.map(() => -bruto),
     afectoIVA: false,
     tipo: 'REMUNERACION',
+    editarEn: 'remuneraciones',
+    formula: `Suma de los sueldos brutos del personal ($${n0(bruto)}), igual todos los meses`,
   })
   if (!excel && e.bonoDescargaPorCamion > 0) {
     egresos.push({
@@ -232,6 +270,8 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       valores: e.meses.map((_, i) => -e.bonoDescargaPorCamion * (e.camiones[i] ?? 0)),
       afectoIVA: false,
       tipo: 'REMUNERACION',
+      editarEn: 'indicadores',
+      formula: `$${n0(e.bonoDescargaPorCamion)} por cada camión de materia prima del mes (parámetro bonoDescargaPorCamion)`,
     })
   }
 
@@ -276,6 +316,8 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       fueraDeTotal,
       soloFlujo: g.soloFlujo,
       deudaId: g.deudaId,
+      editarEn: 'versiones',
+      formula: formulaGasto(g),
       tipo: g.driver === 'POR_CONTENEDOR' || g.driver === 'POR_KG' || g.driver === 'POR_TONELADA' ? 'VARIABLE' : 'FIJO',
     })
   }

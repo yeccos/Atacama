@@ -231,7 +231,7 @@ export default function App() {
       </nav>
       <main className="min-w-0 flex-1 p-6">
         {actual === 'inicio' && <Inicio />}
-        {actual === 'presupuesto' && <Presupuesto />}
+        {actual === 'presupuesto' && <Presupuesto irA={setActual} />}
         {actual === 'flujo' && <Flujo />}
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'auditoria' && <Auditoria />}
