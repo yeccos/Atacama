@@ -4,7 +4,18 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 import { nombreMes } from './fechas'
 
+interface ClienteMezcla {
+  clienteId: number
+  nombre: string
+  origenId: number
+  soloOrigen: boolean
+  contenedores: number[]
+  desviados: Record<number, number[]>
+}
+
 interface Respuesta {
+  origenes: { id: number; nombre: string }[]
+  clientesMezcla: ClienteMezcla[]
   version: { id: number; nombre: string }
   tonPorCamion: number
   mermaPct: number
@@ -53,6 +64,23 @@ export default function PlanMP() {
     }
   }
 
+  async function cambiarMezcla(clienteId: number, origenId: number, mes: string, valor: string) {
+    const n = Number(valor)
+    if (!Number.isInteger(n) || n < 0) return cargar()
+    try {
+      await api(`/presupuesto/${versionId}/mezcla`, 'PUT', { clienteId, origenId, mes, contenedores: n })
+      cargar()
+    } catch (e) {
+      setError((e as Error).message)
+      cargar()
+    }
+  }
+
+  const mesesMezcla = datos?.planes[0]?.meses ?? []
+  const nombreOrigen = (id: number) => datos?.origenes.find((o) => o.id === id)?.nombre ?? ''
+  const mezclables = (datos?.clientesMezcla ?? []).filter((c) => !c.soloOrigen)
+  const bloqueados = (datos?.clientesMezcla ?? []).filter((c) => c.soloOrigen)
+
   return (
     <section className="mb-8">
       <div className="mb-2 flex flex-wrap items-end gap-3">
@@ -76,6 +104,54 @@ export default function PlanMP() {
         (Europa), y no se puede usar el de Albemarle.
       </p>
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      {mezclables.length > 0 && (
+        <div className="mb-5 rounded border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-3 py-2">
+            <h3 className="font-semibold">Mezcla de origen por contenedor</h3>
+            <p className="text-sm text-slate-500">
+              Tú decides qué contenedores se producen con la sal de otro origen para aprovechar los saldos. Anota cuántos contenedores del mes salen del otro origen; el resto sale del origen habitual.
+              {bloqueados.length > 0 && <> {bloqueados.map((c) => c.nombre).join(', ')} no se puede mezclar (solo {nombreOrigen(bloqueados[0].origenId)}, límite de arsénico).</>}
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2">Contenedores desde otro origen</th>
+                  {mesesMezcla.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {mezclables.flatMap((c) =>
+                  datos!.origenes.filter((o) => o.id !== c.origenId).map((o) => (
+                    <tr key={c.clienteId + '-' + o.id} className="border-b border-slate-100">
+                      <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">{c.nombre} con {o.nombre} <span className="text-xs text-slate-400">(habitual: {nombreOrigen(c.origenId)})</span></td>
+                      {mesesMezcla.map((m, i) => {
+                        const k = c.desviados[o.id]?.[i] ?? 0
+                        return (
+                          <td key={m} className="px-1 py-1 text-right">
+                            {c.contenedores[i] > 0 ? (
+                              <input
+                                className="w-12 rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-right text-sky-900"
+                                defaultValue={k}
+                                key={m + k}
+                                title={`${c.contenedores[i]} contenedores en el mes`}
+                                onBlur={(e) => e.target.value !== String(k) && cambiarMezcla(c.clienteId, o.id, m, e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                              />
+                            ) : <span className="text-slate-300">–</span>}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {datos?.planes.map((p) => {
         const sinComprar = p.ventaSinComprar.filter(Boolean).length

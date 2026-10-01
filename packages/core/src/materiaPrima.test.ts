@@ -51,6 +51,16 @@ describe('plan de materia prima por origen', () => {
     expect(alb.costoPorTonCLP).toBeCloseTo(220.5263 * 950, 4)
     expect(alb.valorStockFinalCLP[0]).toBeCloseTo(11.947 * 220.5263 * 950, 2)
   })
+  it('la mezcla desvía contenedores a otro origen, salvo clientes que solo admiten el suyo', () => {
+    const e = base()
+    e.contenedores = { 1: [2, 0, 0], 2: [1, 0, 0] }
+    e.mezcla = { 1: { 2: [1, 0, 0] }, 2: { 1: [1, 0, 0] } }
+    // DBC desvía 1 de sus 2 contenedores a SQM; NADARRA no puede mezclarse si es soloOrigen.
+    e.clientes[1].soloOrigen = true
+    const [alb, sqm] = planificarMP(e, {}, { 1: 0, 2: 0 })
+    expect(alb.consumoT[0]).toBe(21.053)
+    expect(sqm.consumoT[0]).toBe(42.105)
+  })
   it('un origen sin uso, sin stock y sin compras no aparece', () => {
     const planes = planificarMP(base(), {}, { 1: 10 })
     expect(planes.map((p) => p.nombre)).toEqual(['Albemarle'])

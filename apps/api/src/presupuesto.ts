@@ -62,6 +62,13 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
   for (const x of await prisma.contenedorMes.findMany({ where: { versionId } })) {
     ;(ediciones[x.clienteId] ??= {})[iso(x.mes).slice(0, 7)] = x.contenedores
   }
+  const mezcla: Record<number, Record<number, number[]>> = {}
+  for (const x of await prisma.mezclaOrigen.findMany({ where: { versionId } })) {
+    const i = meses.indexOf(iso(x.mes).slice(0, 7))
+    if (i < 0) continue
+    const porOrigen = ((mezcla[x.clienteId] ??= {})[x.origenId] ??= meses.map(() => 0))
+    porOrigen[i] = x.contenedores
+  }
   const compras = await prisma.compraMPPlan.findMany({ where: { versionId } })
   const camiones = meses.map((m) => compras.filter((c) => iso(c.mes).slice(0, 7) === m).reduce((s, c) => s + c.camiones, 0))
 
@@ -83,6 +90,7 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
       fleteUsdPorCont: tarifa ? num(tarifa.usdPorCont) : null,
       yodada: c.producto?.yodada ?? false,
       antiaglomeranteId: c.producto?.antiaglomeranteId ?? null,
+      soloOrigen: c.soloOrigen,
       // Solo para el flujo:
       diasTransito: c.destino?.diasTransito ?? 20,
       hitos: [...c.hitos].sort((a, b) => a.orden - b.orden).map((h) => ({ pct: num(h.pct), evento: h.evento, diasDesfase: h.diasDesfase })),
@@ -115,6 +123,7 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
     empleados: empleados.map((e) => ({ cargo: e.cargo, bruto: e.bruto })),
     incotermCostos,
     contenedores,
+    mezcla,
     camiones,
     bonoDescargaPorCamion: par.numero('bonoDescargaPorCamion', 0),
   }
@@ -154,6 +163,31 @@ export function registrarPresupuesto(app: FastifyInstance) {
       create: { versionId, clienteId, mes: new Date(mes + '-01T00:00:00.000Z'), contenedores: contenedores! },
     })
     await auditar(req.usuario, 'ContenedorMes', despues.id, antes ? 'MODIFICAR' : 'CREAR', antes, despues)
+    return despues
+  })
+
+  // Decidir cuántos contenedores de un cliente en un mes se producen con MP de otro origen (mezcla de saldos).
+  app.put('/api/presupuesto/:id/mezcla', async (req, reply) => {
+    const versionId = Number((req.params as any).id)
+    const { clienteId, origenId, mes, contenedores } = (req.body ?? {}) as { clienteId?: number; origenId?: number; mes?: string; contenedores?: number }
+    if (!clienteId || !origenId || !mes || !/^\d{4}-\d{2}$/.test(mes) || !Number.isInteger(contenedores) || contenedores! < 0) {
+      return reply.code(400).send({ error: 'Datos no válidos' })
+    }
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
+    if (!cliente) return reply.code(400).send({ error: 'El cliente no existe' })
+    if (cliente.soloOrigen && origenId !== cliente.origenId) {
+      return reply.code(400).send({ error: `${cliente.nombre} solo puede llevar materia prima de su origen (límite de arsénico).` })
+    }
+    if (origenId === cliente.origenId) return reply.code(400).send({ error: 'Ese ya es el origen habitual del cliente' })
+    const fecha = new Date(mes + '-01T00:00:00.000Z')
+    const clave = { versionId_clienteId_origenId_mes: { versionId, clienteId, origenId, mes: fecha } }
+    const antes = await prisma.mezclaOrigen.findUnique({ where: clave })
+    const despues = await prisma.mezclaOrigen.upsert({
+      where: clave,
+      update: { contenedores: contenedores! },
+      create: { versionId, clienteId, origenId, mes: fecha, contenedores: contenedores! },
+    })
+    await auditar(req.usuario, 'MezclaOrigen', despues.id, antes ? 'MODIFICAR' : 'CREAR', antes, despues)
     return despues
   })
 
@@ -206,7 +240,19 @@ export function registrarPresupuesto(app: FastifyInstance) {
       stockInicioMesT: recortar(p.stockInicioMesT), stockFinalT: recortar(p.stockFinalT), ventaSinComprar: recortar(p.ventaSinComprar),
       camionesSugeridos: recortar(p.camionesSugeridos), valorStockFinalCLP: recortar(p.valorStockFinalCLP),
     }))
-    return { version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes }
+    const clientesMezcla = entrada.clientes
+      .filter((cl) => cl.origenId && (entrada.contenedores[cl.id] ?? []).some((k) => k > 0))
+      .map((cl) => ({
+        clienteId: cl.id, nombre: cl.nombre, origenId: cl.origenId, soloOrigen: !!cl.soloOrigen,
+        contenedores: recortar(entrada.contenedores[cl.id] ?? []),
+        desviados: Object.fromEntries(
+          entrada.origenes.filter((o) => o.id !== cl.origenId).map((o) => [o.id, recortar(entrada.meses.map((_, i) => (entrada.mezcla?.[cl.id]?.[o.id]?.[i] ?? 0)))]),
+        ),
+      }))
+    return {
+      version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes,
+      origenes: entrada.origenes.map((o) => ({ id: o.id, nombre: o.nombre })), clientesMezcla,
+    }
   })
 
   /** Flujo mensual (24 meses por defecto). */

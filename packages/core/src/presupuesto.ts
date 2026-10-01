@@ -30,6 +30,8 @@ export interface ClienteIn {
   /** Producto que compra: define qué antiaglomerante usa y si lleva yodo. */
   yodada?: boolean
   antiaglomeranteId?: number | null
+  /** Solo puede llevar MP de su origen (Europa: SQM). */
+  soloOrigen?: boolean
 }
 
 /**
@@ -89,6 +91,8 @@ export interface EntradaPpto {
   contenedores: Record<number, number[]>
   camiones: number[]
   bonoDescargaPorCamion: number
+  /** Contenedores que se producen con MP de otro origen: cliente → origen → contenedores por mes. */
+  mezcla?: Record<number, Record<number, number[]>>
   /** Solo modo excel: precio plano por cliente (el Excel usaba un promedio para NADARRA). */
   precioPlano?: Record<number, number>
 }
@@ -130,6 +134,23 @@ export interface ResultadoPpto {
 }
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
+
+/** Contenedores del cliente en el mes i que salen de la MP de ese origen (los desviados a otro origen van por mezcla). */
+export function contenedoresDeOrigen(e: EntradaPpto, c: ClienteIn, origenId: number, i: number): number {
+  const total = e.contenedores[c.id]?.[i] ?? 0
+  if (c.soloOrigen) return origenId === c.origenId ? total : 0
+  const desviados = Object.entries(e.mezcla?.[c.id] ?? {})
+    .filter(([o]) => Number(o) !== c.origenId)
+    .map(([o, v]) => [Number(o), Math.max(0, v[i] ?? 0)] as const)
+    .sort((a, b) => a[0] - b[0])
+  let resto = total
+  const asignado: Record<number, number> = {}
+  for (const [o, k] of desviados) {
+    asignado[o] = Math.min(k, resto)
+    resto -= asignado[o]
+  }
+  return origenId === c.origenId ? resto : asignado[origenId] ?? 0
+}
 
 const n0 = (x: number) => formatoNumero(x, Number.isInteger(x) ? 0 : 2)
 const unidadMoneda = (moneda: string, x: number) => (moneda === 'UF' ? n0(x) + ' UF' : moneda === 'USD' ? 'US$' + n0(x) : '$' + n0(x))
@@ -195,7 +216,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
   // ── Materia prima por origen ──
   for (const o of e.origenes) {
     const valores = e.meses.map((_, i) => {
-      const kg = sum(e.clientes.filter((c) => c.origenId === o.id).map((c) => cont(c, i) * c.kgPorCont))
+      const kg = sum(e.clientes.map((c) => contenedoresDeOrigen(e, c, o.id, i) * c.kgPorCont))
       const ton = kg / 1000 / (1 - e.mermaPct / 100)
       return -ton * (o.usdPorTon + o.fleteUsdPorTon) * e.tc
     })

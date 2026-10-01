@@ -35,6 +35,7 @@ export const PAGINAS: Pagina[] = [
         { campo: 'kgPorContenedor', titulo: 'Kg/cont', tipo: 'entero', defecto: '20.000', ancho: 110 },
         { campo: 'incotermId', titulo: 'Incoterm', tipo: 'ref', ref: 'incoterms', refCampo: 'codigo', ancho: 110 },
         { campo: 'origenId', titulo: 'Origen MP', tipo: 'ref', ref: 'origenesMP', ancho: 120 },
+        { campo: 'soloOrigen', titulo: 'Solo su origen', tipo: 'bool', defecto: false, ancho: 120 },
         { campo: 'productoId', titulo: 'Producto', tipo: 'ref', ref: 'productos' },
         { campo: 'activo', titulo: 'Activo', tipo: 'bool', defecto: true, ancho: 90 },
         { campo: 'nota', titulo: 'Nota', ancho: 260 },

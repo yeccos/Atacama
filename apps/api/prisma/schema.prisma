@@ -216,6 +216,8 @@ model Cliente {
   productoId      Int?
   producto        Producto? @relation(fields: [productoId], references: [id])
   activo          Boolean @default(true)
+  // Verdadero = solo puede llevar MP de su origen (ej. NADARRA/Europa solo SQM por el límite de arsénico).
+  soloOrigen      Boolean @default(false)
   nota            String?
 
   precios   PrecioCliente[]
@@ -352,6 +354,18 @@ model ContenedorMes {
   contenedores Int
 
   @@unique([versionId, clienteId, mes])
+}
+
+// Contenedores de un cliente en un mes que se producen con MP de un origen distinto al habitual (mezcla de saldos).
+model MezclaOrigen {
+  id           Int      @id @default(autoincrement())
+  versionId    Int
+  clienteId    Int
+  origenId     Int
+  mes          DateTime
+  contenedores Int
+
+  @@unique([versionId, clienteId, origenId, mes])
 }
 
 // Partida manual del flujo de caja: ingreso (+) o egreso (-) puntual, en CLP.

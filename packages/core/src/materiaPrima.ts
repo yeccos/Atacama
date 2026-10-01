@@ -1,7 +1,7 @@
 // Plan de materia prima por origen: cuánto se compra, cuánto se consume, cuánto queda y cuándo se puede
 // vender sin comprar. Cada camión trae 28 t brutas; producir exige MP = kg vendidos ÷ (1 − merma), así que
 // un camión casi nunca calza con los contenedores y va dejando saldo (excedente) que sirve para el siguiente.
-import type { EntradaPpto } from './presupuesto'
+import { contenedoresDeOrigen, type EntradaPpto } from './presupuesto'
 
 export interface PlanMPOrigen {
   origenId: number
@@ -40,8 +40,7 @@ export function planificarMP(
     const consumo = e.meses.map((_, i) =>
       r3(
         e.clientes
-          .filter((c) => c.origenId === o.id)
-          .reduce((s, c) => s + ((e.contenedores[c.id]?.[i] ?? 0) * c.kgPorCont) / 1000 / (1 - e.mermaPct / 100), 0),
+          .reduce((s, c) => s + (contenedoresDeOrigen(e, c, o.id, i) * c.kgPorCont) / 1000 / (1 - e.mermaPct / 100), 0),
       ),
     )
     const camiones = e.meses.map((_, i) => camionesPorOrigen[o.id]?.[i] ?? 0)
