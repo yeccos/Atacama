@@ -8,9 +8,9 @@ Las preguntas con ★ son las que más cambian los números.
 
 ## A. Clientes y ventas
 
-1. ★ **DBC Ingredients: ¿el incoterm es FOB o CIF?** El presupuesto tiene cargado el flete a Nueva York (US$6.200 por contenedor) pero nunca lo aplica. Si es CIF, el flete lo paga Atacama y son unos $5,9 MM más de costo por contenedor.
+1. ★ **DBC Ingredients: ¿el incoterm es FOB o CIF?** El presupuesto tiene cargado el flete a Nueva York (US$6.200 por contenedor) pero nunca lo aplica. Si es CIF, el flete lo paga Atacama y son unos $5,9 MM más de costo por contenedor. *(En las facturas de agosto y septiembre no hay flete a Nueva York: probablemente es FOB; confirmar.)*
 2. **DBC: ¿cuándo y cómo paga?** El flujo supone el 100% el mismo mes del embarque (octubre y noviembre). ¿Es así, o hay anticipo o días de crédito?
-3. ★ **WHS (México): ¿es CFR o CIF Manzanillo?** CIF incluye seguro de carga, que el presupuesto no considera en ningún lado.
+3. ★ **WHS (México): ¿es CFR o CIF Manzanillo?** CIF incluye seguro de carga, que el presupuesto no considera en ningún lado. *(Italcargo les cobró flete y seguro de carga: es CIF.)*
 4. **WHS: ¿cuándo llega el 20% final?** Mencionaste que a veces la aduana retiene parte. ¿Cuántos días suele demorar?
 5. **Embarques de octubre:** ¿qué fechas esperamos de producción, embarque (ETD) y BL para WHS, NADARRA y DBC? El flujo supone cobro del saldo de NADARRA y del 50% de WHS en octubre, y el 20% de WHS en noviembre.
 6. **Supreme Enterprises (India):** ¿a qué puerto, con qué forma de pago y con qué frecuencia esperamos venderle? ¿Se mantiene CIF?
@@ -21,8 +21,8 @@ Las preguntas con ★ son las que más cambian los números.
 ## B. Materia prima
 
 10. ★ **Albemarle, los $4,8 MM mensuales del flujo: ¿son deuda atrasada o compra corriente?** Una pista: 28 t × US$150 × 950 × 1,19 (IVA) = $4,75 MM, que calza con la compra de un camión al mes. Si es compra corriente, ¿en cuántos días se paga y es en dólares o pesos?
-11. ★ **Flete de silvinita:** el flujo calcula 67 × 28.000 × 1,19. ¿Son 67 toneladas a $28.000, o un camión de 28 t a $67.000 la tonelada (el flete de US$70,5/t equivale a ≈ $67.000)? ¿Cuántos camiones se compran de verdad al mes? El presupuesto pone 3 en octubre y 1 por mes; el flujo, 1.
-12. ★ **SQM para NADARRA:** el flujo no incluye la materia prima de los 2 contenedores de octubre (≈ 42 t × US$367 ≈ $14,7 MM). ¿Cómo se compra: camiones de 28 t? ¿Quién hace el flete y cuándo se paga?
+11. ★ **Flete de silvinita:** el flujo calcula 67 × 28.000 × 1,19. ¿Son 67 toneladas a $28.000, o un camión de 28 t a $67.000 la tonelada (el flete de US$70,5/t equivale a ≈ $67.000)? ¿Cuántos camiones se compran de verdad al mes? El presupuesto pone 3 en octubre y 1 por mes; el flujo, 1. *(Resuelta: $67 por kg × 27.520 kg, un camión. Falta saber cuántos camiones se compran al mes.)*
+12. ★ **SQM para NADARRA:** el flujo no incluye la materia prima de los 2 contenedores de octubre (≈ 42 t × US$367 ≈ $14,7 MM). ¿Cómo se compra: camiones de 28 t? ¿Quién hace el flete y cuándo se paga? *(Una guía de SQM del 27-09 muestra 27,96 t a $352.096 la tonelada; falta su factura.)*
 13. **Stock inicial:** el presupuesto parte con 5 toneladas. ¿Es correcto, y de qué origen son?
 14. **Merma:** usamos 5% por defecto, pero la app permite registrarla por camión. ¿Cómo se mide hoy (pesaje de entrada y de producto terminado)? ¿Es distinta entre Albemarle y SQM?
 15. Los camiones son de 28 t y los contenedores de 16,5 t (USA) o 20 t: ¿el saldo que sobra de un camión se usa en el siguiente embarque? ¿Hay un tope de días que se puede guardar?
@@ -32,12 +32,12 @@ Las preguntas con ★ son las que más cambian los números.
 16. ★ **¿Qué producto compra cada cliente?** ¿Yodada o no, y qué antiaglomerante lleva? La aplicación ya tiene un catálogo con dióxido de silicio, Nuflow y harina de arroz, y se pueden agregar más: ¿cuáles otros usamos? Para cada uno necesito proveedor, costo por kilo y dosis por tonelada de sal. El costo cambia según la formulación.
 17. ★ **Costo de insumos:** hoy hay un valor global de $35 por kg ("sal, etiquetas, dióxido, yodo"). ¿Cuánto es cada uno por tonelada de producto? Necesito: yodo, antiaglomerante, sacos, etiquetas.
 18. **Sacos:** el flujo tiene 248 sacos × $3.000 = $744.000 aparte. ¿Están incluidos en los $35/kg o se suman?
-19. **Pallets:** quedó como $20.766 por unidad, 1 pallet por tonelada vendida. El flujo del 30-09 usa otro valor ($14.450 por pallet × 40 + $60.000): ¿cuál es el precio vigente de cada pallet, y los $60.000 qué son?
+19. **Pallets:** quedó como $20.766 por unidad, 1 pallet por tonelada vendida. El flujo del 30-09 usa otro valor ($14.450 por pallet × 40 + $60.000): ¿cuál es el precio vigente de cada pallet, y los $60.000 qué son? *(Facturas de Teca: $14.450 por pallet más $60.000 de despacho por pedido.)*
 20. **Grúa horquilla:** "4 × $20.000" por contenedor. ¿Qué es el 4 (horas, movimientos)?
 21. **Petróleo:** el presupuesto usa $15/kg (≈ $300.000 por contenedor de 20 t); el flujo $240.000 × 4 = $960.000 al mes. ¿Cuál es el consumo real?
 22. **Laboratorio, Mantención y Varios** (cada uno con $50.000 por contenedor más un fijo): ¿de dónde salen? "Varios" es $100.000 + $50.000 por contenedor en el presupuesto, pero $1.000.000 en el flujo. ¿Cuál es el real?
 23. **Aduana y transporte a San Antonio/Valparaíso** ($450.000 cada uno por contenedor): ¿son iguales para todos los destinos y clientes? ¿Incluyen IVA? ¿Qué agencia y qué transportista usamos, y a cuántos días se les paga?
-24. **Fletes marítimos:** ¿qué es el "+100" que se suma a cada flete (1.950+100, 2.600+100)? ¿Incluye el seguro? ¿Hay costos en destino? Para India, ¿puerto y tarifa?
+24. **Fletes marítimos:** ¿qué es el "+100" que se suma a cada flete (1.950+100, 2.600+100)? ¿Incluye el seguro? ¿Hay costos en destino? Para India, ¿puerto y tarifa? *(El +100 es el seguro (US$81): confirma CIF a México.)*
 
 ## D. Remuneraciones
 
@@ -54,7 +54,7 @@ Las preguntas con ★ son las que más cambian los números.
 32. ★ **IFS Food** ($4.000.000 al año): ¿en qué mes es la auditoría? Hoy no se carga en ningún mes. **Kosher** ($1.000.000): ¿se paga cada octubre?
 33. ★ **Inversiones en equipos** ($1.000.000 al mes) y **pintura y techos** ($500.000 al mes): ¿se mantienen hasta 2030 o tienen un monto total o fecha de término? En el presupuesto no se sumaban al total.
 34. **Arriendo de la bodega:** 55 UF + $400.000 en el presupuesto ($2.657.750) y $2.600.000 en el flujo. ¿Lleva IVA? ¿Se paga a principio o fin de mes? ¿Cuál es el valor de UF correcto?
-35. **Contabilidad** (6 UF): el presupuesto da $246.300 (UF 41.050) y el flujo $243.000 (UF 40.500). ¿Con cuál nos quedamos?
+35. **Contabilidad** (6 UF): el presupuesto da $246.300 (UF 41.050) y el flujo $243.000 (UF 40.500). ¿Con cuál nos quedamos? *(VSS factura 5 UF netas; con IVA son ≈ 6 UF. El presupuesto está con IVA incluido.)*
 36. **Muestras DHL:** $240.000 en el presupuesto, $150.000 en el flujo. **LinkedIn:** $75.000 vs $73.000.
 37. **Retiro de escombros:** está como gasto anual ($1.000.000 prorrateado) y también en la lista de deudas. ¿Es lo mismo? Si no, ¿qué corresponde a cada uno?
 38. **"C. Concha / C. Rojas"** ($5.000.000 en octubre) y **"Nuflow / F. Bambú / Imp. DAHAN"** (sin monto) aparecen en el flujo. Nuflow parece ser el antiaglomerante; ¿son compras de insumos? ¿Qué son los otros dos, cuánto y cuándo se pagan?
@@ -65,7 +65,7 @@ Necesito el detalle de **cada deuda que tenemos hoy** para que el flujo de caja 
 **saldo hoy · cuota mensual · cuántas cuotas faltan o fecha de término · tasa de interés · si el monto incluye IVA · a quién se le paga y cómo.**
 
 39. ★ **Bancoestado** (cuota de $1.200.000): saldo, tasa y cuántas cuotas faltan. En el presupuesto la cuota corre hasta 2030, y en la lista de deudas dice "nov-dic".
-40. ★ **Rossi** ($1.584.870 al mes) y **Servitral** ($1.339.322 al mes): ¿qué son (proveedores, créditos), cuál es el saldo y cuántas cuotas quedan? Hoy el flujo no tiene fecha de término y asumimos 12 meses.
+40. ★ **Rossi** ($1.584.870 al mes) y **Servitral** ($1.339.322 al mes): ¿qué son (proveedores, créditos), cuál es el saldo y cuántas cuotas quedan? Hoy el flujo no tiene fecha de término y asumimos 12 meses. *(Rossi es la agencia de aduanas y Servitral el transporte de contenedores; falta aclarar si las cuotas son facturas atrasadas.)*
 41. ★ **Albemarle:** ¿hay una deuda atrasada por separado de las compras corrientes? Si la hay, ¿de cuánto y con qué plan de pago?
 42. **Saldo y condiciones del resto de las deudas** de la lista de la planilla: Transportes Mendoza, retiro de escombros, Nicolás Errázuriz, Versalles (pallets), Grúas SPV, Rosa Durán (balanza), Fenway (etiquetas), VSS Consultores (factura 1190), Registro FDA, CMR Manuel (BH Carlos), devolución préstamo Manuel, arriendo y gastos comunes. Para las facturas atrasadas, el N° de factura y la fecha de vencimiento.
 43. ¿"Nicolás Errázuriz", "CMR Manuel" y "Dev. préstamo Manuel" son tres deudas distintas o la misma? ¿Se pagan de una vez o en cuotas, y desde cuándo?
