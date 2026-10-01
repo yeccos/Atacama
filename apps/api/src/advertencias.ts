@@ -50,9 +50,8 @@ export async function calcularAdvertencias(): Promise<Advertencia[]> {
   for (const i of await prisma.insumo.findMany()) {
     if (i.costoUnitario === null) out.push({ modulo: 'Productos', mensaje: `Insumo ${i.nombre}: costo unitario por completar.` })
   }
-  for (const p of await prisma.producto.findMany({ where: { activo: true }, include: { receta: true } })) {
+  for (const p of await prisma.producto.findMany({ where: { activo: true } })) {
     if (!p.antiaglomeranteId) out.push({ modulo: 'Productos', mensaje: `${p.nombre}: sin antiaglomerante definido.` })
-    if (p.receta.length === 0) out.push({ modulo: 'Productos', mensaje: `${p.nombre}: sin receta de insumos.` })
   }
 
   for (const p of await prisma.proveedor.findMany({ where: { activo: true } })) {

@@ -93,7 +93,7 @@ export const PAGINAS: Pagina[] = [
     id: 'productos', menu: 'Productos e insumos', grupo: 'Producción',
     principal: {
       recurso: 'productos', titulo: 'Productos',
-      ayuda: 'Cada producto define su formulación: yodada o no, y el antiaglomerante (elígelo de la lista de abajo; ahí puedes agregar nuevos). Selecciona un producto para ver su receta.',
+      ayuda: 'Crea un producto por cada combinación que vendas (por ejemplo "Sal sin yodo · Nuflow" y "Sal sin yodo · Dióxido de silicio") con Agregar. El antiaglomerante se elige del catálogo de más abajo, donde puedes agregar nuevos.',
       columnas: [
         { campo: 'nombre', titulo: 'Producto' },
         { campo: 'yodada', titulo: 'Yodada', tipo: 'bool', ancho: 100 },
@@ -101,15 +101,6 @@ export const PAGINAS: Pagina[] = [
         { campo: 'activo', titulo: 'Activo', tipo: 'bool', defecto: true, ancho: 100 },
       ],
     },
-    detalles: [
-      {
-        campoPadre: 'productoId', recurso: 'recetas', titulo: 'Receta: insumos por tonelada de producto',
-        columnas: [
-          { campo: 'insumoId', titulo: 'Insumo', tipo: 'ref', ref: 'insumos' },
-          { campo: 'dosisPorTon', titulo: 'Dosis por tonelada', tipo: 'decimal', decimales: 3 },
-        ],
-      },
-    ],
     extras: [
       {
         recurso: 'insumos', titulo: 'Antiaglomerantes', fijo: { tipo: 'ANTIAGLOMERANTE' },
