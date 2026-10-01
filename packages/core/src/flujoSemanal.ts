@@ -1,7 +1,7 @@
 // Flujo de caja semanal. El presupuesto da montos por mes; aquí cada monto se lleva a la fecha en que
 // se paga o se cobra (sueldos a fin de mes, Previred el 10, costos de un embarque en su ETD...) y
 // luego se reparte en semanas de 7 días desde la fecha de inicio.
-import { sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
+import { claveCobro, nombreCobro, sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
 
 export interface ParamsSemanal {
   /** Día del mes en que se pagan los gastos fijos. */
@@ -71,7 +71,7 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   // ── Cobros: fecha exacta del hito ──
   for (const c of e.cobros) {
     eventos.push({
-      fecha: c.fecha, grupo: 'INGRESO', clave: 'cobro-' + c.clienteId, nombre: `Cobros ${c.nombre}`,
+      fecha: c.fecha, grupo: 'INGRESO', clave: claveCobro(c), nombre: nombreCobro(c),
       monto: (c.usdCent / 100) * e.tc, esCobro: true,
     })
   }

@@ -256,6 +256,33 @@ function escalarCostos(ppto: ResultadoPpto, pct: number): ResultadoPpto {
   return { ...ppto, egresos, totalEgresos, margen, margenAcum: margen.map((m) => (acum += m)) }
 }
 
+/**
+ * Fecha en que se espera un cobro de un embarque real: la fecha del evento del embarque (real si ya ocurrió, si no
+ * la estimada) más los días de desfase de la forma de pago del cliente. Si el embarque no tiene esa fecha, se usa
+ * la fecha base que quedó guardada en el hito. La llegada (ETA) sale del embarque más los días de tránsito del destino.
+ */
+function fechaDelHito(
+  e: { fOCReal: Date | null; fOCEst: Date | null; fProdReal: Date | null; fProdEst: Date | null; fETDReal: Date | null; fETDEst: Date | null; fBLReal: Date | null; fBLEst: Date | null; fETAReal: Date | null; fETAEst: Date | null },
+  h: { evento: string; fechaEsperada: Date | null },
+  diasTransito: number,
+  formaDePago: { evento: string; diasDesfase: number }[],
+): string | null {
+  const etd = e.fETDReal ?? e.fETDEst
+  const bl = e.fBLReal ?? e.fBLEst ?? etd
+  const porEvento: Record<string, Date | null | undefined> = {
+    OC: e.fOCReal ?? e.fOCEst,
+    PRODUCCION: e.fProdReal ?? e.fProdEst,
+    ETD: etd,
+    BL: bl,
+    FACTURA: bl,
+    ETA: e.fETAReal ?? e.fETAEst ?? (etd ? new Date(etd.getTime() + diasTransito * 86_400_000) : null),
+  }
+  const base = porEvento[h.evento]
+  if (!base) return h.fechaEsperada ? iso(h.fechaEsperada) : null
+  const desfase = formaDePago.find((x) => x.evento === h.evento)?.diasDesfase ?? 0
+  return sumarDias(iso(base), desfase)
+}
+
 async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   const c = await cargarEntrada(versionId, { tc: op.tc, sinCliente: op.sinCliente })
   if (!c) return null
@@ -266,15 +293,23 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   const atraso = op.atrasoCobros ?? 0
 
   // Cobros reales: hitos pendientes de embarques reales, con sus días de atraso.
-  const embarques = await prisma.embarque.findMany({ where: { versionId: null, estado: { not: 'COBRADO' } }, include: { hitos: true, cliente: true } })
+  const embarques = await prisma.embarque.findMany({
+    where: { versionId: null, estado: { not: 'COBRADO' } },
+    include: { hitos: true, cliente: { include: { hitos: true, destino: true } } },
+  })
   const cobros: CobroFlujo[] = []
   const cubiertos = new Set<string>()
   for (const e of embarques) {
-    const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO' && h.fechaEsperada)
-    const ref = e.fETDReal ?? e.fETDEst ?? pendientes[0]?.fechaEsperada
+    const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO')
+    const ref = e.fETDReal ?? e.fETDEst ?? pendientes.find((h) => h.fechaEsperada)?.fechaEsperada
     if (ref) cubiertos.add(`${e.clienteId}|${iso(ref).slice(0, 7)}`)
     for (const h of pendientes) {
-      cobros.push({ clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(iso(h.fechaEsperada!), h.diasAtraso + atraso), usdCent: h.montoUsdCent, origen: 'REAL' })
+      const fecha = fechaDelHito(e, h, e.cliente.destino?.diasTransito ?? 20, e.cliente.hitos)
+      if (!fecha) continue
+      cobros.push({
+        clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(fecha, h.diasAtraso + atraso), usdCent: h.montoUsdCent,
+        origen: 'REAL', evento: h.evento, pct: num(h.pct),
+      })
     }
   }
 

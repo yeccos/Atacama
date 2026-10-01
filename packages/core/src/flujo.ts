@@ -57,7 +57,18 @@ export interface CobroFlujo {
   fecha: string
   usdCent: number
   origen: 'REAL' | 'PROYECTADO'
+  /** Hito del que viene (OC, BL, ETA...) y su porcentaje: el flujo muestra una línea por hito. */
+  evento?: string
+  pct?: number
 }
+
+const ETIQUETA_EVENTO: Record<string, string> = {
+  OC: 'a la OC', PRODUCCION: 'en producción', ETD: 'al embarque', BL: 'contra BL', ETA: 'a la llegada', FACTURA: 'contra factura', FECHA_FIJA: 'fecha fija',
+}
+
+export const claveCobro = (c: CobroFlujo) => 'cobro-' + c.clienteId + (c.evento ? '-' + c.evento : '')
+export const nombreCobro = (c: CobroFlujo) =>
+  c.evento ? `Cobros ${c.nombre} · ${c.pct !== undefined ? c.pct + '% ' : ''}${ETIQUETA_EVENTO[c.evento] ?? c.evento}` : `Cobros ${c.nombre}`
 
 export interface ClienteCobro {
   id: number
@@ -100,6 +111,8 @@ export function cobrosProyectados(
           fecha: sumarDias(cal[h.evento] ?? cal.ETD, h.diasDesfase),
           usdCent: partes[j],
           origen: 'PROYECTADO',
+          evento: h.evento,
+          pct: h.pct,
         })
       })
     })
@@ -188,16 +201,17 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   const egresos: LineaFlujo[] = []
 
   // ── Cobros por cliente (USD → CLP al TC del presupuesto) ──
-  const porCliente = new Map<number, LineaFlujo>()
+  const porCliente = new Map<string, LineaFlujo>()
   for (const c of e.cobros) {
     const i = col(c.fecha)
     if (i < 0) continue
-    if (!porCliente.has(c.clienteId)) {
-      const l = { clave: 'cobro-' + c.clienteId, nombre: `Cobros ${c.nombre}`, valores: vacia() }
-      porCliente.set(c.clienteId, l)
+    const clave = claveCobro(c)
+    if (!porCliente.has(clave)) {
+      const l = { clave, nombre: nombreCobro(c), valores: vacia() }
+      porCliente.set(clave, l)
       ingresos.push(l)
     }
-    porCliente.get(c.clienteId)!.valores[i] += (c.usdCent / 100) * e.tc
+    porCliente.get(clave)!.valores[i] += (c.usdCent / 100) * e.tc
   }
 
   // ── Costos del presupuesto, con IVA donde corresponde ──

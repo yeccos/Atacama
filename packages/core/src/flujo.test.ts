@@ -140,3 +140,21 @@ describe('flujo de caja', () => {
     })
   })
 })
+
+describe('cobros por hito', () => {
+  it('muestra una línea por hito: 30% a la OC, 50% contra BL, 20% a la llegada', () => {
+    const e: EntradaFlujo = {
+      ppto: pptoVacio(['2026-10', '2026-11']), tc: 950, meses: ['2026-10', '2026-11'], saldoInicial: 0,
+      cobros: [
+        { clienteId: 2, nombre: 'WHS', fecha: '2026-10-15', usdCent: 1127000, origen: 'REAL', evento: 'BL', pct: 50 },
+        { clienteId: 2, nombre: 'WHS', fecha: '2026-11-04', usdCent: 450800, origen: 'REAL', evento: 'ETA', pct: 20 },
+      ],
+      partidas: [], deudas: [], sueldosLiquidos: 0, previredMensual: 0, ivaPct: 19, devolucionIVAModo: 'fijo',
+      devolucionIVAMensual: 0, rezagoIVAMeses: 1, mesesSinFin: 1, saldoMinimo: 0,
+    }
+    const f = armarFlujo(e)
+    expect(f.ingresos.map((l) => l.nombre)).toEqual(['Cobros WHS · 50% contra BL', 'Cobros WHS · 20% a la llegada'])
+    expect(f.ingresos[0].valores).toEqual([10706500, 0])
+    expect(f.ingresos[1].valores).toEqual([0, 4282600])
+  })
+})
