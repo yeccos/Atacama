@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 
 type Estado = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
-interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; estado: Estado }
+interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; estado: Estado; enPresupuesto: boolean; grupo: string | null }
 interface Saldo { proveedorId: number; proveedor: string; n: number; saldo: number; masAntiguo: string }
 
 const clp = (x: number) => '$' + formatoNumero(Math.round(x))
@@ -64,6 +64,7 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
   const pendientes = docs.filter((d) => d.estado === 'PENDIENTE' || d.estado === 'PARCIAL')
   const totalPendiente = pendientes.reduce((s, d) => s + d.saldo, 0)
   const hoy = new Date().toISOString().slice(0, 10)
+  const adicional = pendientes.filter((d) => !d.enPresupuesto).reduce((s, d) => s + d.saldo, 0)
   const vencidas = pendientes.filter((d) => d.vencimiento && d.vencimiento < hoy)
   const mostradas = filtro === 'TODAS' ? docs : docs.filter((d) => d.estado === filtro)
 
@@ -74,13 +75,13 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
         <button className="btn" disabled={ocupado} onClick={conciliar}>Conciliar con cartolas</button>
       </div>
       <p className="mb-3 text-sm text-slate-500">
-        Las facturas de agosto o antes se suponen pagadas; las de septiembre quedan pendientes hasta que una cartola muestre el pago (mismo monto y mismo proveedor). Lo pendiente sale en el flujo de caja el día de su vencimiento.
+        Las facturas de agosto o antes se suponen pagadas; las de septiembre quedan pendientes hasta que una cartola muestre el pago (mismo monto y mismo proveedor). Lo pendiente de proveedores que el presupuesto ya proyecta (telefonía, sacos, aduana, etc.) no se suma otra vez al flujo; solo se agrega lo que el presupuesto no cubre.
       </p>
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {mensaje && <p className="mb-3 rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensaje}</p>}
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Tarjeta titulo="Por pagar a proveedores" valor={clp(totalPendiente)} nota={`${pendientes.length} facturas pendientes`} />
+        <Tarjeta titulo="Por pagar a proveedores" valor={clp(totalPendiente)} nota={`${pendientes.length} facturas; ${clp(totalPendiente - adicional)} ya están en las líneas del presupuesto`} />
         <Tarjeta titulo="Ya vencidas" valor={clp(vencidas.reduce((s, d) => s + d.saldo, 0))} nota={`${vencidas.length} facturas`} />
         <Tarjeta titulo="Pagadas verificadas" valor={formatoNumero(docs.filter((d) => d.estado === 'PAGADA').length)} nota="con su pago en la cartola" />
         <Tarjeta titulo="Pagadas supuestas" valor={formatoNumero(docs.filter((d) => d.estado === 'SUPUESTA').length)} nota="sin pago visible en la cartola" />
@@ -129,7 +130,7 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
                 <td className="px-3 py-1.5">{d.vencimiento ? formatoFecha(d.vencimiento) : ''}</td>
                 <td className="px-3 py-1.5 text-right">{clp(d.total)}</td>
                 <td className="px-3 py-1.5 text-right">{d.saldo ? clp(d.saldo) : ''}</td>
-                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span></td>
+                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span>{d.enPresupuesto && (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <span className="ml-1 text-xs text-slate-400">incluida en «{d.grupo}»</span>}</td>
                 <td className="px-3 py-1.5 text-right">
                   {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <button className="text-xs text-sky-700 hover:underline" onClick={() => marcar(d, true)}>Marcar pagada</button>}
                   {d.estado === 'SUPUESTA' && <button className="text-xs text-sky-700 hover:underline" onClick={() => marcar(d, false)}>Dejar pendiente</button>}

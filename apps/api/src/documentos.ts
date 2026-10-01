@@ -1,5 +1,5 @@
 // Facturas recibidas: qué se debe a cada proveedor y qué pagos de la cartola las cubren.
-import { compacto } from '@atacama/core'
+import { compacto, GRUPO_INSUMOS, GRUPO_MP, grupoGasto, GRUPO_EXPORTACION } from '@atacama/core'
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
 import { prisma } from './db'
@@ -12,7 +12,29 @@ const signo = (tipo: string) => (tipo === 'NOTA_CREDITO' ? -1 : 1)
 
 export type EstadoDoc = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
 
+/**
+ * Proveedores cuyo gasto el presupuesto ya proyecta mes a mes (gastos, insumos, materia prima y fletes), con el gran grupo
+ * donde aparece: sus facturas no se suman otra vez al flujo, se muestran dentro de ese grupo.
+ */
+async function proveedoresEnPresupuesto() {
+  const grupos = new Map<number, string>()
+  for (const g of await prisma.gastoDriver.findMany({ where: { activo: true, proveedorId: { not: null } }, include: { tipoCosto: true } })) grupos.set(g.proveedorId!, grupoGasto(g.tipoCosto?.codigo ?? null, g.driver))
+  for (const i of await prisma.insumo.findMany({ where: { proveedorId: { not: null } }, select: { proveedorId: true } })) grupos.set(i.proveedorId!, GRUPO_INSUMOS)
+  for (const o of await prisma.origenMP.findMany({ where: { proveedorId: { not: null } }, select: { proveedorId: true } })) grupos.set(o.proveedorId!, GRUPO_MP)
+  for (const t of await prisma.tarifaFlete.findMany({ where: { navieraId: { not: null } }, select: { navieraId: true } })) grupos.set(t.navieraId!, GRUPO_EXPORTACION)
+  return grupos
+}
+
+/** Facturas pendientes que el presupuesto ya incluye: se muestran bajo su grupo del flujo, sin sumarse. */
+export async function facturasIncluidas() {
+  const hoy = new Date().toISOString().slice(0, 10)
+  return (await documentosConSaldo())
+    .filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && d.grupo)
+    .map((d) => ({ grupo: d.grupo!, proveedor: d.proveedor, folio: d.folio, fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), saldo: d.saldo }))
+}
+
 export async function documentosConSaldo() {
+  const enPresupuesto = await proveedoresEnPresupuesto()
   const docs = await prisma.documento.findMany({
     include: { proveedor: true, aplicaciones: { include: { pago: true } } },
     orderBy: [{ emision: 'desc' }, { id: 'desc' }],
@@ -26,7 +48,7 @@ export async function documentosConSaldo() {
     return {
       id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, tipo: d.tipo, folio: d.folio,
       emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
-      total, pagado: signo(d.tipo) * pagado, saldo, estado,
+      total, pagado: signo(d.tipo) * pagado, saldo, estado, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
     }
   })
 }

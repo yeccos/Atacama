@@ -19,7 +19,7 @@ import {
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
 import { prisma } from './db'
-import { documentosConSaldo } from './documentos'
+import { documentosConSaldo, facturasIncluidas } from './documentos'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const num = (x: unknown) => Number(x)
@@ -268,7 +268,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const [a, m] = mesesPpto[0].split('-').map(Number)
     const previo = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`
     const flujo = armarFlujo({ ...prep.base, meses: [previo, ...mesesPpto] })
-    return { version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc }, flujo, advertencias: prep.advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo') }
+    return { version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc }, flujo, advertencias: prep.advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo'), facturas: await facturasIncluidas() }
   })
 
   /** Flujo semanal: una columna de cierre más N semanas desde el primer día del presupuesto. */
@@ -281,7 +281,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const flujo = armarFlujoSemanal(prep.semanal(Math.min(Number(q.semanas) || 13, 52)))
     return {
       version: { id: prep.c.version.id, nombre: prep.c.version.nombre, tc: prep.c.entrada.tc },
-      flujo, resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo), advertencias: prep.advertencias,
+      flujo, resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo), advertencias: prep.advertencias, facturas: await facturasIncluidas(),
     }
   })
 
@@ -402,12 +402,12 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   cobros.push(...proy.cobros.map((x) => ({ ...x, fecha: sumarDias(x.fecha, atraso) })))
 
   const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
-  // Lo que ya se debe a proveedores: cada factura pendiente sale el día de su vencimiento (o hoy, si ya venció).
+  // Lo que se debe a proveedores y el presupuesto no proyecta (el resto ya está en sus líneas: sumarlo duplicaría); sale el día de su vencimiento, o hoy si ya venció.
   const hoy = new Date().toISOString().slice(0, 10)
-  const facturasPendientes = (await documentosConSaldo()).filter((d) => d.estado === 'PENDIENTE' || d.estado === 'PARCIAL')
+  const facturasPendientes = (await documentosConSaldo()).filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && !d.enPresupuesto)
   const partidas = [
     ...(await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto })),
-    ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `Factura ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),
+    ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `${d.saldo < 0 ? "Nota de crédito" : "Factura"} ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),
   ]
 
   const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null } }, include: { gastos: true } })

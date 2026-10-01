@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
 import { diaMes } from './fechas'
+import FilasEgresos, { type FacturaIncluida } from './FilasEgresos'
 import Flujo from './Flujo'
 
 type Vista = 'mensual' | 'semanal' | 'escenarios'
@@ -29,7 +30,7 @@ function Semanal() {
   const { versiones, versionId, setVersionId } = useVersiones()
   const [semanas, setSemanas] = useState(13)
   const [tc, setTc] = useState('')
-  const [datos, setDatos] = useState<{ flujo: ResultadoFlujoSemanal; resumen: ResumenSemanal; advertencias: string[]; version: { tc: number } } | null>(null)
+  const [datos, setDatos] = useState<{ flujo: ResultadoFlujoSemanal; resumen: ResumenSemanal; advertencias: string[]; version: { tc: number }; facturas: FacturaIncluida[] } | null>(null)
   const [error, setError] = useState('')
 
   const cargar = useCallback(async () => {
@@ -132,7 +133,12 @@ function Semanal() {
                 {f.ingresos.map((l) => fila(l.clave, l.nombre, l.valores))}
                 {fila('ti', 'Total ingresos', f.totalIngresos, 'bg-slate-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.periodos.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Egresos</td></tr>
-                {f.egresos.map((l) => fila(l.clave, l.nombre, l.valores))}
+                <FilasEgresos
+                  egresos={f.egresos}
+                  facturas={datos?.facturas ?? []}
+                  columnas={f.periodos.length}
+                  columnaDe={(fecha) => f.periodos.findIndex((p) => fecha <= p.hasta)}
+                />
                 {fila('te', 'Total egresos', f.totalEgresos, 'bg-slate-50 font-semibold')}
                 {fila('fn', 'Flujo neto de la semana', f.flujoNeto, 'saldo font-semibold')}
                 {fila('sf', 'Saldo final de caja', f.saldoFinal, 'saldo bg-sky-50 font-bold')}

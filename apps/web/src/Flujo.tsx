@@ -3,6 +3,7 @@ import { formatoNumero, parseNumeroCL, type ResultadoFlujo } from '@atacama/core
 import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
+import FilasEgresos, { type FacturaIncluida } from './FilasEgresos'
 import { nombreMes } from './fechas'
 import Maestro from './Maestro'
 
@@ -11,6 +12,7 @@ interface Respuesta {
   flujo: ResultadoFlujo
   advertencias: string[]
   modoIVA: string
+  facturas: FacturaIncluida[]
 }
 
 const num = (v: number) => (Math.abs(v) < 0.5 ? '' : formatoNumero(Math.round(v)))
@@ -123,7 +125,12 @@ export default function Flujo() {
                 {f.ingresos.map((l) => fila(l.clave, l.nombre, l.valores))}
                 {fila('ti', 'Total ingresos', f.totalIngresos, 'bg-slate-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.meses.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Egresos</td></tr>
-                {f.egresos.map((l) => fila(l.clave, l.nombre, l.valores))}
+                <FilasEgresos
+                  egresos={f.egresos}
+                  facturas={datos?.facturas ?? []}
+                  columnas={f.meses.length}
+                  columnaDe={(fecha) => f.meses.indexOf(fecha.slice(0, 7))}
+                />
                 {fila('te', 'Total egresos', f.totalEgresos, 'bg-slate-50 font-semibold')}
                 {fila('fn', 'Flujo neto del mes', f.flujoNeto, 'saldo font-semibold')}
                 {fila('sf', 'Saldo final de caja', f.saldoFinal, 'saldo bg-sky-50 font-bold')}

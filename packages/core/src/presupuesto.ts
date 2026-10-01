@@ -97,8 +97,26 @@ export interface EntradaPpto {
   precioPlano?: Record<number, number>
 }
 
+/** Grandes grupos de egresos del flujo: cada línea del presupuesto cae en uno. */
+export const GRUPO_MP = 'Materia prima'
+export const GRUPO_INSUMOS = 'Insumos de producción'
+export const GRUPO_EXPORTACION = 'Exportación: flete, aduana y puerto'
+export const GRUPO_VARIABLES = 'Costos variables de planta'
+export const GRUPO_FIJOS = 'Gastos fijos y administración'
+export const GRUPO_REMUNERACIONES = 'Remuneraciones y Previred'
+export const GRUPO_DEUDAS = 'Deudas y créditos'
+export const GRUPO_OTROS = 'Otros'
+
+/** Grupo de un gasto: lo que depende del incoterm es exportación; el resto, variable de planta o fijo. */
+export function grupoGasto(tipoCosto: string | null, driver: string): string {
+  if (tipoCosto) return GRUPO_EXPORTACION
+  return driver === 'POR_CONTENEDOR' || driver === 'POR_KG' || driver === 'POR_TONELADA' || driver === 'POR_TON_MP' || driver === 'POR_CAMION' ? GRUPO_VARIABLES : GRUPO_FIJOS
+}
+
 export interface LineaPpto {
   clave: string
+  /** Gran grupo de egresos al que pertenece. */
+  grupo?: string
   nombre: string
   /** Egresos en negativo, como en el Excel. */
   valores: number[]
@@ -222,7 +240,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     })
     if (valores.some((v) => v !== 0)) {
       egresos.push({
-        clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp', diasPago: o.diasPago,
+        clave: 'mp-' + o.id, grupo: GRUPO_MP, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp', diasPago: o.diasPago,
         formula: `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (US$${n0(o.usdPorTon)} + US$${n0(o.fleteUsdPorTon)} de flete) × dólar`,
       })
     }
@@ -255,7 +273,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       const alcance = ins.tipo === 'ANTIAGLOMERANTE' ? ', solo de los productos que usan este antiaglomerante' : ins.tipo === 'YODO' ? ', solo de los productos yodados' : ''
       const por = ins.base === 'POR_KG' ? 'kg vendidos' : ins.base === 'POR_CONTENEDOR' ? 'contenedores' : ins.base === 'POR_CAMION' ? 'camiones' : 'toneladas vendidas'
       egresos.push({
-        clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE', editarEn: 'productos', diasPago: ins.diasPago,
+        clave: 'insumo-' + ins.id, grupo: GRUPO_INSUMOS, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE', editarEn: 'productos', diasPago: ins.diasPago,
         formula: `Insumo: $${n0(ins.costoUnitario)} por unidad × ${n0(ins.cantidadPorBase)} unidades por cada ${ins.base === 'POR_TONELADA' ? 'tonelada' : ins.base === 'POR_KG' ? 'kg' : ins.base === 'POR_CONTENEDOR' ? 'contenedor' : 'camión'} × ${por} del mes${alcance}`,
       })
     }
@@ -267,6 +285,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     if (!asumeCosto(e.incotermCostos, c.incoterm, 'FLETE_MARITIMO')) continue
     egresos.push({
       clave: 'flete-' + c.id,
+      grupo: GRUPO_EXPORTACION,
       nombre: `Flete marítimo ${c.nombre}`,
       valores: e.meses.map((_, i) => -c.fleteUsdPorCont! * cont(c, i) * e.tc),
       afectoIVA: false,
@@ -283,6 +302,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
   }
   egresos.push({
     clave: 'remuneraciones',
+    grupo: GRUPO_REMUNERACIONES,
     nombre: 'Remuneraciones',
     valores: e.meses.map(() => -bruto),
     afectoIVA: false,
@@ -293,6 +313,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
   if (!excel && e.bonoDescargaPorCamion > 0) {
     egresos.push({
       clave: 'bono-descarga',
+      grupo: GRUPO_REMUNERACIONES,
       nombre: 'Bono descarga de camiones',
       valores: e.meses.map((_, i) => -e.bonoDescargaPorCamion * (e.camiones[i] ?? 0)),
       afectoIVA: false,
@@ -337,6 +358,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     })
     egresos.push({
       clave: 'gasto-' + g.id,
+      grupo: grupoGasto(g.tipoCosto, g.driver),
       nombre: g.nombre,
       valores,
       afectoIVA: g.afectoIVA,

@@ -1,7 +1,7 @@
 // Flujo de caja proyectado: cobros por hitos, costos del presupuesto con IVA, remuneraciones,
 // deudas y partidas manuales. Los montos del flujo van con IVA (el presupuesto va en neto).
 import { totalPedidoUsdCent, type Escala } from './comercial'
-import type { ResultadoPpto } from './presupuesto'
+import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
 
 // ───────────── Fechas de un embarque y de sus hitos de cobro ─────────────
 
@@ -165,6 +165,8 @@ export interface EntradaFlujo {
 export interface LineaFlujo {
   clave: string
   nombre: string
+  /** Gran grupo de egresos (se despliega en pantalla). */
+  grupo?: string
   /** Positivo; el signo lo da el grupo (ingreso o egreso). */
   valores: number[]
 }
@@ -231,20 +233,20 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
       const j = pp(m)
       if (j >= 0 && l.afectoIVA) ivaCredito[i] += -l.valores[j] * (e.ivaPct / 100)
     })
-    if (valores.some((v) => v !== 0)) egresos.push({ clave: l.clave, nombre: l.nombre, valores })
+    if (valores.some((v) => v !== 0)) egresos.push({ clave: l.clave, nombre: l.nombre, grupo: l.grupo, valores })
   }
 
   // ── Remuneraciones: líquidos a fin de mes, Previred al mes siguiente, bono por camión ──
   const primerPpto = e.meses.findIndex((m) => pp(m) >= 0)
   if (e.sueldosLiquidos > 0 && primerPpto >= 0) {
-    egresos.push({ clave: 'sueldos', nombre: 'Sueldos líquidos', valores: e.meses.map((_, i) => (i >= primerPpto ? e.sueldosLiquidos : 0)) })
+    egresos.push({ clave: 'sueldos', nombre: 'Sueldos líquidos', grupo: GRUPO_REMUNERACIONES, valores: e.meses.map((_, i) => (i >= primerPpto ? e.sueldosLiquidos : 0)) })
   }
   if (e.previredMensual > 0 && primerPpto >= 0) {
-    egresos.push({ clave: 'previred', nombre: 'Imposiciones (Previred)', valores: e.meses.map((_, i) => (i >= primerPpto ? e.previredMensual : 0)) })
+    egresos.push({ clave: 'previred', nombre: 'Imposiciones (Previred)', grupo: GRUPO_REMUNERACIONES, valores: e.meses.map((_, i) => (i >= primerPpto ? e.previredMensual : 0)) })
   }
   const bono = e.ppto.egresos.find((l) => l.clave === 'bono-descarga')
   if (bono) {
-    egresos.push({ clave: bono.clave, nombre: bono.nombre, valores: e.meses.map((m) => (pp(m) < 0 || bono.valores[pp(m)] === 0 ? 0 : -bono.valores[pp(m)])) })
+    egresos.push({ clave: bono.clave, nombre: bono.nombre, grupo: GRUPO_REMUNERACIONES, valores: e.meses.map((m) => (pp(m) < 0 || bono.valores[pp(m)] === 0 ? 0 : -bono.valores[pp(m)])) })
   }
 
   // ── Deudas con cuota propia ──
@@ -252,7 +254,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const ini = d.desde ? idxMes(d.desde) : idxMes(e.meses[primerPpto >= 0 ? primerPpto : 0])
     const fin = d.hasta ? idxMes(d.hasta) : ini + e.mesesSinFin - 1
     const valores = e.meses.map((m) => (idxMes(m) >= ini && idxMes(m) <= fin ? d.cuota : 0))
-    if (valores.some((v) => v !== 0)) egresos.push({ clave: 'deuda-' + d.acreedor, nombre: `Cuota ${d.acreedor}`, valores })
+    if (valores.some((v) => v !== 0)) egresos.push({ clave: 'deuda-' + d.acreedor, nombre: `Cuota ${d.acreedor}`, grupo: GRUPO_DEUDAS, valores })
   }
 
   // ── Partidas manuales ──
@@ -262,7 +264,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const lista = p.monto >= 0 ? ingresos : egresos
     let l = lista.find((x) => x.clave === 'partida-' + p.concepto)
     if (!l) {
-      l = { clave: 'partida-' + p.concepto, nombre: p.concepto, valores: vacia() }
+      l = { clave: 'partida-' + p.concepto, nombre: p.concepto, grupo: GRUPO_OTROS, valores: vacia() }
       lista.push(l)
     }
     l.valores[i] += Math.abs(p.monto)

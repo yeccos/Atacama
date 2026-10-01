@@ -2,6 +2,7 @@
 // se paga o se cobra (sueldos a fin de mes, Previred el 10, costos de un embarque en su ETD...) y
 // luego se reparte en semanas de 7 días desde la fecha de inicio.
 import { claveCobro, nombreCobro, sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
+import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_REMUNERACIONES } from './presupuesto'
 
 export interface ParamsSemanal {
   /** Día del mes en que se pagan los gastos fijos. */
@@ -54,6 +55,7 @@ interface Evento {
   grupo: 'INGRESO' | 'EGRESO'
   clave: string
   nombre: string
+  grupoEgreso?: string
   monto: number
   /** Un cobro atrasado (anterior al inicio) se espera en la primera semana, no en el cierre. */
   esCobro?: boolean
@@ -64,8 +66,8 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   const factorIVA = 1 + e.ivaPct / 100
   const eventos: Evento[] = []
   const meses = e.ppto.meses
-  const egreso = (fecha: string, clave: string, nombre: string, monto: number) => {
-    if (monto !== 0) eventos.push({ fecha, grupo: 'EGRESO', clave, nombre, monto })
+  const egreso = (fecha: string, clave: string, nombre: string, monto: number, grupoEgreso?: string) => {
+    if (monto !== 0) eventos.push({ fecha, grupo: 'EGRESO', clave, nombre, monto, grupoEgreso })
   }
 
   // ── Cobros: fecha exacta del hito ──
@@ -91,16 +93,16 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
         : fechaDia(ym, p.diaPagoFijos)
       // La materia prima ya pagada sigue dando IVA crédito, pero no sale de la caja.
       if (l.tipo === 'MP' && e.mpPagadoHasta && ym <= e.mpPagadoHasta) return
-      egreso(sumarDias(fecha, l.diasPago ?? 0), l.clave, l.nombre, neto * (l.afectoIVA ? factorIVA : 1))
+      egreso(sumarDias(fecha, l.diasPago ?? 0), l.clave, l.nombre, neto * (l.afectoIVA ? factorIVA : 1), l.grupo)
     })
   }
 
   // ── Remuneraciones: líquidos a fin de mes, Previred el día configurado, bono por camión ──
   const bono = e.ppto.egresos.find((l) => l.clave === 'bono-descarga')
   meses.forEach((ym, i) => {
-    egreso(finDeMes(ym), 'sueldos', 'Sueldos líquidos', e.sueldosLiquidos)
-    egreso(fechaDia(ym, p.diaPagoPrevired), 'previred', 'Imposiciones (Previred)', e.previredMensual)
-    if (bono) egreso(finDeMes(ym), bono.clave, bono.nombre, -bono.valores[i])
+    egreso(finDeMes(ym), 'sueldos', 'Sueldos líquidos', e.sueldosLiquidos, GRUPO_REMUNERACIONES)
+    egreso(fechaDia(ym, p.diaPagoPrevired), 'previred', 'Imposiciones (Previred)', e.previredMensual, GRUPO_REMUNERACIONES)
+    if (bono) egreso(finDeMes(ym), bono.clave, bono.nombre, -bono.valores[i], GRUPO_REMUNERACIONES)
   })
 
   // ── Deudas con cuota propia ──
@@ -109,14 +111,14 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
     const fin = d.hasta ? indiceMes(d.hasta) : ini + e.mesesSinFin - 1
     for (let k = ini; k <= fin; k++) {
       const ym = mesDeIndice(k)
-      if (meses.includes(ym)) egreso(fechaDia(ym, p.diaPagoCuotas), 'deuda-' + d.acreedor, `Cuota ${d.acreedor}`, d.cuota)
+      if (meses.includes(ym)) egreso(fechaDia(ym, p.diaPagoCuotas), 'deuda-' + d.acreedor, `Cuota ${d.acreedor}`, d.cuota, GRUPO_DEUDAS)
     }
   }
 
   // ── Partidas manuales ──
   for (const x of e.partidas) {
     if (x.monto >= 0) eventos.push({ fecha: x.fecha, grupo: 'INGRESO', clave: 'partida-' + x.concepto, nombre: x.concepto, monto: x.monto })
-    else egreso(x.fecha, 'partida-' + x.concepto, x.concepto, -x.monto)
+    else egreso(x.fecha, 'partida-' + x.concepto, x.concepto, -x.monto, GRUPO_OTROS)
   }
 
   // ── Devolución de IVA exportador ──
@@ -144,7 +146,7 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
     const lista = ev.grupo === 'INGRESO' ? ingresos : egresos
     let linea = lista.find((l) => l.clave === ev.clave)
     if (!linea) {
-      linea = { clave: ev.clave, nombre: ev.nombre, valores: Array(nP).fill(0) }
+      linea = { clave: ev.clave, nombre: ev.nombre, grupo: ev.grupoEgreso, valores: Array(nP).fill(0) }
       lista.push(linea)
     }
     linea.valores[i] += ev.monto
