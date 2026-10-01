@@ -29,7 +29,7 @@ Las preguntas con ★ son las que más cambian los números.
 
 ## C. Producción e insumos
 
-16. ★ **¿Qué producto compra cada cliente?** ¿Yodada o no, y qué antiaglomerante lleva (dióxido de silicio u otro)? El costo cambia según la formulación.
+16. ★ **¿Qué producto compra cada cliente?** ¿Yodada o no, y qué antiaglomerante lleva? La aplicación ya tiene un catálogo con dióxido de silicio, Nuflow y harina de arroz, y se pueden agregar más: ¿cuáles otros usamos? Para cada uno necesito proveedor, costo por kilo y dosis por tonelada de sal. El costo cambia según la formulación.
 17. ★ **Costo de insumos:** hoy hay un valor global de $35 por kg ("sal, etiquetas, dióxido, yodo"). ¿Cuánto es cada uno por tonelada de producto? Necesito: yodo, antiaglomerante, sacos, etiquetas.
 18. **Sacos:** el flujo tiene 248 sacos × $3.000 = $744.000 aparte. ¿Están incluidos en los $35/kg o se suman?
 19. **Pallets:** el presupuesto usa $20.766 y lo trata como "por tonelada", pero la celda dice "$/un". El flujo usa $14.450 por pallet × 40 + $60.000. ¿Cuánto cuesta cada pallet y cuántos lleva un contenedor?
@@ -57,23 +57,29 @@ Las preguntas con ★ son las que más cambian los números.
 35. **Contabilidad** (6 UF): el presupuesto da $246.300 (UF 41.050) y el flujo $243.000 (UF 40.500). ¿Con cuál nos quedamos?
 36. **Muestras DHL:** $240.000 en el presupuesto, $150.000 en el flujo. **LinkedIn:** $75.000 vs $73.000.
 37. **Retiro de escombros:** está como gasto anual ($1.000.000 prorrateado) y también en la lista de deudas. ¿Es lo mismo? Si no, ¿qué corresponde a cada uno?
-38. **"C. Concha / C. Rojas"** ($5.000.000 en octubre) y **"Nuflow / F. Bambú / Imp. DAHAN"** (sin monto) aparecen en el flujo: ¿qué son y cuándo se pagan?
+38. **"C. Concha / C. Rojas"** ($5.000.000 en octubre) y **"Nuflow / F. Bambú / Imp. DAHAN"** (sin monto) aparecen en el flujo. Nuflow parece ser el antiaglomerante; ¿son compras de insumos? ¿Qué son los otros dos, cuánto y cuándo se pagan?
 
-## F. Deudas y créditos
+## F. Deudas actuales
 
-39. ★ **Bancoestado** (cuota de $1.200.000): ¿saldo, tasa y cuántas cuotas faltan? En el presupuesto la cuota corre hasta 2030, y en la lista de deudas dice "nov-dic".
-40. ★ **Rossi** ($1.584.870 al mes) y **Servitral** ($1.339.322 al mes): ¿qué son y cuántas cuotas quedan? Hoy el flujo no tiene fecha de término.
-41. **Saldos y condiciones** de: Transportes Mendoza, Albemarle (deuda atrasada), retiro de escombros, Nicolás Errázuriz, Versalles (pallets), Grúas SPV, Rosa Durán (balanza), Fenway (etiquetas), VSS Consultores (factura 1190), Registro FDA, CMR Manuel (BH Carlos), devolución préstamo Manuel. La planilla dice "valores con IVA": ¿es así para todos?
-42. ¿"Nicolás Errázuriz", "CMR Manuel" y "Dev. préstamo Manuel" son tres deudas distintas o la misma? ¿Se pagan de una vez o en cuotas?
+Necesito el detalle de **cada deuda que tenemos hoy** para que el flujo de caja sea real. Con la planilla hay una lista de nombres, pero ningún monto. Para cada una, por favor:
+**saldo hoy · cuota mensual · cuántas cuotas faltan o fecha de término · tasa de interés · si el monto incluye IVA · a quién se le paga y cómo.**
+
+39. ★ **Bancoestado** (cuota de $1.200.000): saldo, tasa y cuántas cuotas faltan. En el presupuesto la cuota corre hasta 2030, y en la lista de deudas dice "nov-dic".
+40. ★ **Rossi** ($1.584.870 al mes) y **Servitral** ($1.339.322 al mes): ¿qué son (proveedores, créditos), cuál es el saldo y cuántas cuotas quedan? Hoy el flujo no tiene fecha de término y asumimos 12 meses.
+41. ★ **Albemarle:** ¿hay una deuda atrasada por separado de las compras corrientes? Si la hay, ¿de cuánto y con qué plan de pago?
+42. **Saldo y condiciones del resto de las deudas** de la lista de la planilla: Transportes Mendoza, retiro de escombros, Nicolás Errázuriz, Versalles (pallets), Grúas SPV, Rosa Durán (balanza), Fenway (etiquetas), VSS Consultores (factura 1190), Registro FDA, CMR Manuel (BH Carlos), devolución préstamo Manuel, arriendo y gastos comunes. Para las facturas atrasadas, el N° de factura y la fecha de vencimiento.
+43. ¿"Nicolás Errázuriz", "CMR Manuel" y "Dev. préstamo Manuel" son tres deudas distintas o la misma? ¿Se pagan de una vez o en cuotas, y desde cuándo?
+44. En la lista de deudas aparecen también "Sueldos", "Imposiciones" y "Arriendo y Gcom": ¿hay montos adeudados de meses anteriores, o solo son los pagos del mes?
+45. ¿Hay **otras deudas que no están en la planilla**: tarjetas de crédito, líneas de crédito, leasing, deudas con el SII o la Tesorería, créditos de socios?
 
 ## G. Caja, IVA e impuestos
 
-43. **Saldo inicial:** $10.102.270 en Bice "antes de los movimientos de la última semana". Con los pagos de esa semana ($15,4 MM) y el cobro del 30% de WHS ($6,4 MM), el flujo termina septiembre en $1.156.978. ¿Es correcto? ¿Hay saldo en la cuenta en dólares o en Bancoestado?
-44. **Fechas del flujo:** las columnas son 30-sep, 31-oct y 1-nov. La tercera parece ser el 30 de noviembre; ¿confirmas?
-45. ★ **IVA:** el flujo tiene "IVA el 19" (+$1,5 MM) y "Devolución IVA" (−$1,5 MM) que se anulan entre sí. ¿Qué es cada uno? ¿Cuánto IVA crédito se acumula de verdad al mes y cuántos días demora la devolución del exportador?
-46. ★ **Impuesto a la renta:** ¿qué régimen tenemos (Pro Pyme general, transparente) y qué tasa debo usar en la provisión? ¿Se paga PPM mensual?
-47. **Bancos y cartolas:** ¿qué cuentas usamos (Bice pesos, Bice dólares, Bancoestado, ¿otras?) y en qué formato se descargan las cartolas? Necesito un ejemplo de cada una.
-48. **Usuarios:** ¿quiénes usarán la aplicación (gerente general, contabilidad) y qué debe poder hacer cada uno?
+46. **Saldo inicial:** $10.102.270 en Bice "antes de los movimientos de la última semana". Con los pagos de esa semana ($15,4 MM) y el cobro del 30% de WHS ($6,4 MM), el flujo termina septiembre en $1.156.978. ¿Es correcto? ¿Hay saldo en la cuenta en dólares o en Bancoestado?
+47. **Fechas del flujo:** las columnas son 30-sep, 31-oct y 1-nov. La tercera parece ser el 30 de noviembre; ¿confirmas?
+48. ★ **IVA:** el flujo tiene "IVA el 19" (+$1,5 MM) y "Devolución IVA" (−$1,5 MM) que se anulan entre sí. ¿Qué es cada uno? ¿Cuánto IVA crédito se acumula de verdad al mes y cuántos días demora la devolución del exportador?
+49. ★ **Impuesto a la renta:** ¿qué régimen tenemos (Pro Pyme general, transparente) y qué tasa debo usar en la provisión? ¿Se paga PPM mensual?
+50. **Bancos y cartolas:** ¿qué cuentas usamos (Bice pesos, Bice dólares, Bancoestado, ¿otras?) y en qué formato se descargan las cartolas? Necesito un ejemplo de cada una.
+51. **Usuarios:** ¿quiénes usarán la aplicación (gerente general, contabilidad) y qué debe poder hacer cada uno?
 
 ---
 

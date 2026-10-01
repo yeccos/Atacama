@@ -21,6 +21,8 @@ export interface Col {
   /** Recurso referenciado para tipo "ref", y el campo que se muestra. */
   ref?: string
   refCampo?: string
+  /** Filtro para la lista de opciones de tipo "ref" (p. ej. solo insumos ANTIAGLOMERANTE). */
+  refFiltro?: Record<string, string>
   ancho?: number
   defecto?: unknown
 }
@@ -30,11 +32,11 @@ export interface ConfigMaestro {
   titulo: string
   ayuda?: string
   columnas: Col[]
+  /** Valores fijos que filtran la tabla y se aplican a los registros nuevos. */
+  fijo?: Record<string, unknown>
 }
 
 interface Props extends ConfigMaestro {
-  /** Valores fijos: filtran la lista y se aplican a los registros nuevos (p. ej. clienteId). */
-  fijo?: Record<string, unknown>
   alSeleccionar?: (fila: any | null) => void
   /** Se llama después de crear, editar, eliminar o importar (para recalcular reportes). */
   alCambiar?: () => void
@@ -122,7 +124,8 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
     const refs = columnas.filter((c) => c.tipo === 'ref')
     Promise.all(
       refs.map(async (c) => {
-        const lista = await api<any[]>(`/r/${c.ref}`)
+        const q = new URLSearchParams(c.refFiltro).toString()
+        const lista = await api<any[]>(`/r/${c.ref}${q ? '?' + q : ''}`)
         return [c.ref!, lista.map((x) => ({ id: x.id, texto: String(x[c.refCampo ?? 'nombre']) }))] as const
       }),
     ).then((pares) => setOpciones(Object.fromEntries(pares)))

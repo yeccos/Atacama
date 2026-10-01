@@ -154,7 +154,10 @@ model Producto {
   id              Int     @id @default(autoincrement())
   nombre          String  @unique
   yodada          Boolean @default(false)
+  // Obsoleto: texto libre de la primera versión. Ahora se elige un insumo de tipo ANTIAGLOMERANTE.
   antiaglomerante String?
+  antiaglomeranteId Int?
+  antiaglomeranteInsumo Insumo? @relation("antiaglomeranteDelProducto", fields: [antiaglomeranteId], references: [id])
   activo          Boolean @default(true)
 
   receta    RecetaInsumo[]
@@ -166,12 +169,15 @@ model Insumo {
   id            Int      @id @default(autoincrement())
   nombre        String   @unique
   unidad        String   @default("kg")
+  // GENERAL | ANTIAGLOMERANTE | YODO ... Los de tipo ANTIAGLOMERANTE se ofrecen al definir un producto.
+  tipo          String   @default("GENERAL")
   // Costo neto por unidad, en CLP. Null = por completar (dispara advertencia).
   costoUnitario Decimal?
   proveedorId   Int?
   proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
 
   recetas RecetaInsumo[]
+  productosConEste Producto[] @relation("antiaglomeranteDelProducto")
 }
 
 // Dosis de cada insumo por tonelada de producto terminado.

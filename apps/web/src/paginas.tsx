@@ -93,11 +93,11 @@ export const PAGINAS: Pagina[] = [
     id: 'productos', menu: 'Productos e insumos', grupo: 'Producción',
     principal: {
       recurso: 'productos', titulo: 'Productos',
-      ayuda: 'Cada producto define su formulación: yodada o no, y el antiaglomerante. Selecciona uno para ver su receta.',
+      ayuda: 'Cada producto define su formulación: yodada o no, y el antiaglomerante (elígelo de la lista de abajo; ahí puedes agregar nuevos). Selecciona un producto para ver su receta.',
       columnas: [
         { campo: 'nombre', titulo: 'Producto' },
         { campo: 'yodada', titulo: 'Yodada', tipo: 'bool', ancho: 100 },
-        { campo: 'antiaglomerante', titulo: 'Antiaglomerante' },
+        { campo: 'antiaglomeranteId', titulo: 'Antiaglomerante', tipo: 'ref', ref: 'insumos', refFiltro: { tipo: 'ANTIAGLOMERANTE' } },
         { campo: 'activo', titulo: 'Activo', tipo: 'bool', defecto: true, ancho: 100 },
       ],
     },
@@ -112,9 +112,20 @@ export const PAGINAS: Pagina[] = [
     ],
     extras: [
       {
-        recurso: 'insumos', titulo: 'Insumos',
+        recurso: 'insumos', titulo: 'Antiaglomerantes', fijo: { tipo: 'ANTIAGLOMERANTE' },
+        ayuda: 'Catálogo de antiaglomerantes. Agrega los que uses (dióxido de silicio, Nuflow, harina de arroz...) y asígnalos a cada producto.',
+        columnas: [
+          { campo: 'nombre', titulo: 'Antiaglomerante', ancho: 280 },
+          { campo: 'unidad', titulo: 'Unidad', defecto: 'kg', ancho: 100 },
+          { campo: 'costoUnitario', titulo: 'Costo neto por unidad ($)', tipo: 'decimal', decimales: 0 },
+          { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
+        ],
+      },
+      {
+        recurso: 'insumos', titulo: 'Todos los insumos',
         columnas: [
           { campo: 'nombre', titulo: 'Insumo' },
+          { campo: 'tipo', titulo: 'Tipo', tipo: 'opcion', opciones: ['GENERAL', 'ANTIAGLOMERANTE', 'YODO'], defecto: 'GENERAL', ancho: 170 },
           { campo: 'unidad', titulo: 'Unidad', defecto: 'kg', ancho: 100 },
           { campo: 'costoUnitario', titulo: 'Costo neto por unidad ($)', tipo: 'decimal', decimales: 0 },
           { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },

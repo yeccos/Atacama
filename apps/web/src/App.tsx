@@ -25,7 +25,7 @@ function PaginaMaestro({ pagina }: { pagina: Pagina }) {
         ) : (
           <p className="mb-6 text-sm text-slate-500">Selecciona una fila para ver su detalle.</p>
         ))}
-      {pagina.extras?.map((e) => <Maestro key={e.recurso} {...e} />)}
+      {pagina.extras?.map((e) => <Maestro key={e.titulo} {...e} />)}
     </>
   )
 }
