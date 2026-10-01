@@ -7,6 +7,14 @@ import { prisma } from './db'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 
+/** Lo que la clasificación necesita saber de la empresa: proveedores, personal y las reglas que el usuario fue dejando. */
+async function contextoClasificacion() {
+  const proveedores = await prisma.proveedor.findMany({ select: { id: true, nombre: true } })
+  const empleados = (await prisma.empleado.findMany({ where: { activo: true } })).map((e) => ({ nombre: e.nombre, liquido: e.liquido, desde: e.fechaIngreso ? iso(e.fechaIngreso) : null }))
+  const reglas = (await prisma.reglaCartola.findMany({ where: { activa: true, categoria: { not: null } } })).map((r) => ({ patron: r.patron, categoria: r.categoria!, proveedorId: r.proveedorId }))
+  return { proveedores, empleados, reglas }
+}
+
 interface MovimientoEntrada extends MovimientoCartola {
   saldo?: number | null
 }
@@ -23,8 +31,7 @@ export function registrarBancos(app: FastifyInstance) {
         return reply.code(400).send({ error: `Movimiento no válido: ${JSON.stringify(m).slice(0, 120)}` })
       }
     }
-    const proveedores = await prisma.proveedor.findMany({ select: { id: true, nombre: true } })
-    const empleados = await prisma.empleado.findMany({ where: { activo: true }, select: { nombre: true, liquido: true } })
+    const { proveedores, empleados, reglas } = await contextoClasificacion()
     const existentes = new Set((await prisma.movimientoBanco.findMany({ where: { cuentaId }, select: { hash: true } })).map((x) => x.hash))
     const ordinales = new Map<string, number>()
     let nuevos = 0
@@ -38,7 +45,7 @@ export function registrarBancos(app: FastifyInstance) {
         duplicados++
         continue
       }
-      const c = clasificarMovimiento(m.glosa, m.cargo, m.abono, proveedores, empleados)
+      const c = clasificarMovimiento(m.glosa, m.cargo, m.abono, proveedores, empleados, reglas, m.fecha)
       await prisma.movimientoBanco.create({
         data: {
           cuentaId, fecha: new Date(m.fecha + 'T00:00:00.000Z'), glosa: m.glosa, nDoc: m.nDoc || null, cargo: m.cargo, abono: m.abono,
@@ -56,6 +63,23 @@ export function registrarBancos(app: FastifyInstance) {
       }
     }
     return { nuevos, duplicados }
+  })
+
+  // Volver a clasificar con las reglas de hoy: solo lo que no tiene categoría o la tiene puesta por la propia app.
+  app.post('/api/bancos/reclasificar', async (req) => {
+    const { proveedores, empleados, reglas } = await contextoClasificacion()
+    const AUTOMATICAS = ['Remuneraciones', 'Reembolsos de personal', 'Devolución de préstamos']
+    const movs = await prisma.movimientoBanco.findMany({ where: { OR: [{ categoria: null }, { categoria: { in: AUTOMATICAS } }] } })
+    let cambiados = 0
+    for (const m of movs) {
+      const c = clasificarMovimiento(m.glosa, m.cargo, m.abono, proveedores, empleados, reglas, iso(m.fecha))
+      if (c.categoria !== m.categoria || (c.proveedorId && c.proveedorId !== m.proveedorId)) {
+        await prisma.movimientoBanco.update({ where: { id: m.id }, data: { categoria: c.categoria, proveedorId: c.proveedorId ?? m.proveedorId } })
+        cambiados++
+      }
+    }
+    await auditar(req.usuario, 'MovimientoBanco', null, 'MODIFICAR', null, { reclasificados: cambiados })
+    return { cambiados }
   })
 
   // Clasificar de una vez todos los movimientos de una contraparte (la que viene en la glosa, o el proveedor ya reconocido).

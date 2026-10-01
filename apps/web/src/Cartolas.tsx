@@ -99,6 +99,20 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
     }
   }
 
+  async function reclasificar() {
+    setOcupado(true)
+    setError('')
+    try {
+      const r = await api('/bancos/reclasificar', 'POST', {})
+      setMensaje(`Se reclasificaron ${r.cambiados} movimientos con las reglas actuales.`)
+      await cargar()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   async function importar() {
     if (!leidas) return
     setOcupado(true)
@@ -146,6 +160,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
         <button className="btn" disabled={ocupado} onClick={() => entrada.current?.click()}>
           {ocupado ? 'Leyendo…' : 'Importar cartolas (PDF o Excel)'}
         </button>
+        <button className="btn" disabled={ocupado} onClick={reclasificar} title="Vuelve a clasificar lo que no tiene categoría con las reglas de Cuentas bancarias">Reclasificar</button>
       </div>
       <p className="mb-3 text-sm text-slate-500">
         Sube las cartolas mensuales en PDF y la provisoria en Excel; puedes elegir varias a la vez. Las que ya estaban no se duplican. El saldo de la última cartola es con el que parte el flujo de caja.

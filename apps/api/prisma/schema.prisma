@@ -329,6 +329,8 @@ model Empleado {
   liquido      Int?
   costoEmpresa Int?
   activo       Boolean @default(true)
+  // Desde cuándo recibe sueldo: antes de esa fecha, lo que se le transfirió no son remuneraciones.
+  fechaIngreso DateTime?
 }
 
 model CompraMPPlan {
@@ -659,8 +661,10 @@ model Conciliacion {
 model ReglaCartola {
   id          Int     @id @default(autoincrement())
   patron      String
-  cuentaId    Int
-  cuenta      CuentaContable @relation(fields: [cuentaId], references: [id])
+  cuentaId    Int?
+  cuenta      CuentaContable? @relation(fields: [cuentaId], references: [id])
+  // Categoría con que se clasifican los movimientos cuya glosa contiene el texto.
+  categoria   String?
   proveedorId Int?
   proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
   activa      Boolean @default(true)

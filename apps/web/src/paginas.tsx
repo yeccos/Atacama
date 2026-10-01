@@ -255,6 +255,7 @@ export const PAGINAS: Pagina[] = [
         { campo: 'bruto', titulo: 'Bruto ($)', tipo: 'clp' },
         { campo: 'liquido', titulo: 'Líquido ($)', tipo: 'clp' },
         { campo: 'costoEmpresa', titulo: 'Costo empresa ($)', tipo: 'clp' },
+        { campo: 'fechaIngreso', titulo: 'Sueldo desde', tipo: 'fecha', ancho: 130 },
         { campo: 'activo', titulo: 'Activo', tipo: 'bool', defecto: true, ancho: 100 },
       ],
     },
@@ -315,6 +316,7 @@ export const PAGINAS: Pagina[] = [
         recurso: 'reglasCartola', titulo: 'Reglas automáticas de cartola',
         columnas: [
           { campo: 'patron', titulo: 'Texto en la glosa' },
+          { campo: 'categoria', titulo: 'Categoría' },
           { campo: 'cuentaId', titulo: 'Cuenta contable', tipo: 'ref', ref: 'cuentasContables' },
           { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
           { campo: 'activa', titulo: 'Activa', tipo: 'bool', defecto: true, ancho: 100 },

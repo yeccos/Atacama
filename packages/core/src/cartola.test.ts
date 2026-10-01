@@ -37,3 +37,25 @@ describe('pagos a empleados', () => {
     expect(clasificarMovimiento('cuenta 1 B.Santande, DANIELA RAMIREZ Z, Rut 15.566.009-0, el 30-09', 1244714, 0, [], EMP).categoria).toBe('Remuneraciones')
   })
 })
+
+describe('criterios del dueño', () => {
+  const EMP = [
+    { nombre: 'Manuel Errázuriz L.', liquido: 5035027 },
+    { nombre: 'Manuel Errázuriz S.', liquido: 1000000, desde: '2026-09-01' },
+  ]
+  const glosaL = 'cuenta 1 B.Falabell, MANUEL JOSE ERRAZURIZ LAGOS, Rut 7.160.740-2, el 01-09'
+  const glosaS = 'cuenta 1 B.Falabell, MANUEL JOSE ERRAZURIZ SAAVEDRA, Rut 16.942.086-6, el 01-04'
+  it('desde $3 millones es sueldo, bajo eso reembolso', () => {
+    expect(clasificarMovimiento(glosaL, 3000000, 0, [], EMP).categoria).toBe('Remuneraciones')
+    expect(clasificarMovimiento(glosaL, 2707980, 0, [], EMP).categoria).toBe('Reembolsos de personal')
+  })
+  it('antes de su fecha de ingreso, lo pagado a un empleado es devolución de préstamo', () => {
+    expect(clasificarMovimiento(glosaS, 2000000, 0, [], EMP, [], '2026-04-01').categoria).toBe('Devolución de préstamos')
+    expect(clasificarMovimiento(glosaS, 1000000, 0, [], EMP, [], '2026-09-30').categoria).toBe('Remuneraciones')
+  })
+  it('las reglas del usuario ganan y toleran espacios sueltos en la glosa', () => {
+    const reglas = [{ patron: 'MARIA EUGENIA ERRAZURIZ', categoria: 'Devolución de préstamos' }]
+    expect(clasificarMovimiento('cuenta 9 B.Estado, MARIA EUGENIA ERRAZURIZ LAGOS, Rut 3-1', 1000000, 0, [], [], reglas).categoria).toBe('Devolución de préstamos')
+    expect(clasificarMovimiento('cuenta 9 B.Estado, MARIA EU GENIA ERRAZURIZ LAGOS, Rut 3-1', 1000000, 0, [], [], reglas).categoria).toBe('Devolución de préstamos')
+  })
+})

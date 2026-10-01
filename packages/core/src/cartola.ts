@@ -10,7 +10,19 @@ export interface ProveedorBanco {
 export interface EmpleadoBanco {
   nombre: string | null
   liquido: number | null
+  /** Primer día en que recibe sueldo (aaaa-mm-dd). Antes de esa fecha no se le paga remuneración. */
+  desde?: string | null
 }
+
+/** Regla del usuario: si la glosa contiene el texto, el movimiento queda con esa categoría. */
+export interface ReglaBanco {
+  patron: string
+  categoria: string
+  proveedorId?: number | null
+}
+
+/** Desde este líquido, el sueldo se reconoce por ser un pago grande (al menos $3 millones); bajo eso, por ser el 40% del líquido. */
+const UMBRAL_GRANDE = 3_000_000
 
 /** ¿La contraparte de la glosa es este empleado? Compara nombre, apellido y la inicial del segundo apellido ("Errázuriz L."). */
 export function esEmpleado(contraparte: string | null, empleado: EmpleadoBanco): boolean {
@@ -65,6 +77,8 @@ export function clasificarMovimiento(
   abono: number,
   proveedores: ProveedorBanco[],
   empleados: EmpleadoBanco[] = [],
+  reglas: ReglaBanco[] = [],
+  fecha?: string,
 ): Clasificacion {
   const contraparte = contraparteDe(glosa)
   const c = compacto(glosa)
@@ -77,10 +91,15 @@ export function clasificarMovimiento(
     .sort((a, b) => b.nombre.length - a.nombre.length)
     .find((p) => base.includes(compacto(p.nombre)))
   if (prov && lado === 'cargo') proveedorId = prov.id
-  const regla = REGLAS.find((r) => r.patron.test(c) && (!r.solo || r.solo === lado))
-  // Pagos a empleados: el sueldo es lo grande (al menos 40% del líquido); lo chico son reembolsos y gastos.
+  const reglaUsuario = reglas.find((r) => r.patron && c.includes(compacto(r.patron)))
+  const regla = reglaUsuario ? { categoria: reglaUsuario.categoria } : REGLAS.find((r) => r.patron.test(c) && (!r.solo || r.solo === lado))
+  if (reglaUsuario?.proveedorId && lado === 'cargo') proveedorId = reglaUsuario.proveedorId
+  // Pagos a empleados: lo grande es sueldo y lo chico reembolsos de gastos; antes de su fecha de ingreso, devolución de préstamos.
   const emp = lado === 'cargo' && !regla ? empleados.find((e) => esEmpleado(contraparte, e)) : undefined
-  const categoriaEmpleado = emp ? (emp.liquido && cargo < emp.liquido * 0.4 ? 'Reembolsos de personal' : 'Remuneraciones') : null
+  const umbral = emp?.liquido ? (emp.liquido >= UMBRAL_GRANDE ? UMBRAL_GRANDE : emp.liquido * 0.4) : 0
+  const categoriaEmpleado = emp
+    ? emp.desde && fecha && fecha < emp.desde ? 'Devolución de préstamos' : cargo < umbral ? 'Reembolsos de personal' : 'Remuneraciones'
+    : null
   const categoria = regla ? regla.categoria : categoriaEmpleado ?? (proveedorId ? 'Proveedores' : null)
   return { contraparte, categoria, proveedorId }
 }
