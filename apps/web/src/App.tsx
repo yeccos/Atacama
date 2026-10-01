@@ -4,6 +4,7 @@ import { api, sesion } from './api'
 import Login from './Login'
 import FlujoPagina from './FlujoPagina'
 import Maestro from './Maestro'
+import PlanMP from './PlanMP'
 import Presupuesto from './Presupuesto'
 import { PAGINAS, type Pagina } from './paginas'
 
@@ -235,6 +236,7 @@ export default function App() {
         {actual === 'flujo' && <FlujoPagina />}
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'auditoria' && <Auditoria />}
+        {pagina?.id === 'mp' && <PlanMP />}
         {pagina && <PaginaMaestro key={pagina.id} pagina={pagina} />}
       </main>
     </div>

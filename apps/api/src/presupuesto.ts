@@ -8,6 +8,7 @@ import {
   economiaPorContenedor,
   listaMeses,
   PARAMS_SEMANAL_POR_DEFECTO,
+  planificarMP,
   resolverContenedores,
   resumirFlujoSemanal,
   sumarDias,
@@ -159,11 +160,11 @@ export function registrarPresupuesto(app: FastifyInstance) {
   // Editar los camiones de MP de un mes.
   app.put('/api/presupuesto/:id/camiones', async (req, reply) => {
     const versionId = Number((req.params as any).id)
-    const { mes, camiones } = (req.body ?? {}) as { mes?: string; camiones?: number }
+    const { mes, camiones, origenId } = (req.body ?? {}) as { mes?: string; camiones?: number; origenId?: number }
     if (!mes || !/^\d{4}-\d{2}$/.test(mes) || !Number.isInteger(camiones) || camiones! < 0) {
       return reply.code(400).send({ error: 'Datos no válidos' })
     }
-    const origen = await prisma.origenMP.findFirst({ orderBy: { id: 'asc' } })
+    const origen = origenId ? await prisma.origenMP.findUnique({ where: { id: origenId } }) : await prisma.origenMP.findFirst({ orderBy: { id: 'asc' } })
     if (!origen) return reply.code(400).send({ error: 'No hay orígenes de materia prima' })
     const fecha = new Date(mes + '-01T00:00:00.000Z')
     const clave = { versionId_origenId_mes: { versionId, origenId: origen.id, mes: fecha } }
@@ -175,6 +176,37 @@ export function registrarPresupuesto(app: FastifyInstance) {
     })
     await auditar(req.usuario, 'CompraMPPlan', despues.id, antes ? 'MODIFICAR' : 'CREAR', antes, despues)
     return despues
+  })
+
+  /** Plan de materia prima por origen: stock, compras, consumo, excedente y camiones sugeridos. */
+  app.get('/api/materia-prima/:id', async (req, reply) => {
+    const versionId = Number((req.params as any).id)
+    const q = req.query as { meses?: string }
+    const c = await cargarEntrada(versionId)
+    if (!c) return reply.code(404).send({ error: 'La versión no existe' })
+    const { entrada, par } = c
+    const compras = await prisma.compraMPPlan.findMany({ where: { versionId } })
+    const porOrigen: Record<number, number[]> = {}
+    for (const x of compras) {
+      const i = entrada.meses.indexOf(iso(x.mes).slice(0, 7))
+      if (i < 0) continue
+      ;(porOrigen[x.origenId] ??= entrada.meses.map(() => 0))[i] += x.camiones
+    }
+    // Stock de hoy por origen: lo recibido menos lo consumido de cada camión.
+    const stock: Record<number, number> = {}
+    for (const l of await prisma.camionMP.findMany({ include: { consumos: true } })) {
+      stock[l.origenId] = (stock[l.origenId] ?? 0) + num(l.toneladasRecibidas) - l.consumos.reduce((s, x) => s + num(x.toneladasMP), 0)
+    }
+    const stockMinimoT = par.numero('stockMinimoMPTon', 0)
+    const n = Math.min(Number(q.meses) || 24, entrada.meses.length)
+    const recortar = <T>(xs: T[]) => xs.slice(0, n)
+    const planes = planificarMP(entrada, porOrigen, stock, stockMinimoT).map((p) => ({
+      ...p,
+      meses: recortar(p.meses), camiones: recortar(p.camiones), compradasT: recortar(p.compradasT), consumoT: recortar(p.consumoT),
+      stockInicioMesT: recortar(p.stockInicioMesT), stockFinalT: recortar(p.stockFinalT), ventaSinComprar: recortar(p.ventaSinComprar),
+      camionesSugeridos: recortar(p.camionesSugeridos), valorStockFinalCLP: recortar(p.valorStockFinalCLP),
+    }))
+    return { version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes }
   })
 
   /** Flujo mensual (24 meses por defecto). */
