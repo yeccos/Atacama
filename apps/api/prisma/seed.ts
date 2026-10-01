@@ -4,6 +4,7 @@
 import { PrismaClient } from '@prisma/client'
 import { totalPedidoUsdCent } from '@atacama/core'
 import { hashClave } from '../src/auth'
+import { aplicarValoresDeFacturas } from './correcciones'
 import { completarFacturasSep2026 } from './facturas'
 import { completarFase2 } from './fase2'
 import { completarAntiaglomerantes, completarInsumosConsumo } from './productos'
@@ -29,6 +30,7 @@ async function main() {
     await completarAntiaglomerantes(prisma)
     await completarInsumosConsumo(prisma)
     await completarFacturasSep2026(prisma)
+    await aplicarValoresDeFacturas(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
   }
@@ -358,6 +360,7 @@ async function main() {
   await completarAntiaglomerantes(prisma)
   await completarInsumosConsumo(prisma)
   await completarFacturasSep2026(prisma)
+  await aplicarValoresDeFacturas(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
 

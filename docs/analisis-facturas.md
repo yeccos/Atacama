@@ -119,3 +119,39 @@ Mientras el valor lleve IVA y la línea esté marcada como afecta, el presupuest
 7. ¿Qué son el traslado de sal a Macul (Saporiti) y los cuchillos grabados? ¿Marketing o venta?
 8. Confirmar que **DBC es FOB** y **WHS es CIF**.
 9. ¿A cuántos días se paga a cada proveedor? Las facturas no traen vencimiento.
+
+---
+
+## 7. Cambios aplicados (confirmados por el usuario)
+
+El presupuesto va en neto. Cada línea cambió solo si todavía tenía el valor original del Excel.
+
+| Línea | Antes (Excel) | Ahora (facturas, neto) |
+|---|---|---|
+| Fumigaciones | $110.000 | $92.382 |
+| Contabilidad | 6 UF | 5 UF |
+| Seguro complementario de salud | $129.000 | $108.206 |
+| Comisiones Bice | $50.000 | $43.500 |
+| Agencia de aduanas (por contenedor) | $450.000 (con gate out) | $219.000 |
+| Gate out del contenedor (Medlog), línea nueva | incluido arriba | $154.000 |
+| Transporte a puerto (por contenedor) | $450.000 | $529.000 |
+| Grúa horquilla (por contenedor) | $80.000 | $62.400 |
+| Petróleo | $15 por kg | $12,6 por kg (solo septiembre) |
+| Muestras DHL | con IVA | exentas de IVA |
+| Pallet (insumo) | $20.766 | $16.250 ($14.450 más el despacho repartido: $1.625.000 en 100 pallets) |
+
+Insumos con consumo:
+
+| Insumo | Consumo |
+|---|---|
+| Sacos | 40 por tonelada (sacos de 25 kg), a $248 |
+| Pallets | 1 por tonelada |
+| Rollo de cartón | 0,19 por tonelada **(estimado)** |
+| Rollo de film | 0,66 por tonelada **(estimado)** |
+| Etiquetas | 1 por saco = 40 por tonelada; falta cuántas trae cada rollo |
+
+El cartón y el film se estimaron con las compras de septiembre (7 y 24 rollos) para 36,5 t; hay que verificarlos con el uso real.
+
+El valor global "Otros costos MP" pasó de $35 a $23,2 por kg: se descontaron los sacos ($9,92 por kg neto, $11,8 con IVA) para no contarlos dos veces. Queda para etiquetas, dióxido de silicio y yodo hasta cargar su consumo.
+
+**Efecto sobre el margen:** casi nulo. El margen 2027 pasa de $65,9 MM a $67,1 MM y el de octubre 2026 de $39,5 MM a $39,6 MM. Bajar los valores con IVA compensa el transporte, que estaba corto.
