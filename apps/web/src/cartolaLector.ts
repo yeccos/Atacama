@@ -15,6 +15,10 @@ export interface CartolaLeida {
   movimientos: (MovimientoCartola & { saldo: number })[]
 }
 
+/** El Bice escribe la misma cuenta de dos formas (013-21-00430-6 en el PDF, 01-32-100430-6 en el Excel): se comparan solo los dígitos. */
+export const soloDigitos = (n: string | null | undefined) => (n ?? '').replace(/\D/g, '')
+export const mismaCuenta = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && soloDigitos(a) === soloDigitos(b)
+
 interface Item { s: string; x: number; y: number; r: number }
 
 const montoNum = (s: string): number | null =>
@@ -115,17 +119,20 @@ export async function leerPdf(archivo: File): Promise<CartolaLeida> {
 }
 
 /** Cartola provisoria del Bice (Excel): trae lo último, con el más reciente primero. */
-export async function leerExcel(archivo: File): Promise<CartolaLeida> {
+export async function leerExcel(archivo: File, cuentas: { numero: string | null; moneda: string }[] = []): Promise<CartolaLeida> {
   const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' })
   const filas = XLSX.utils.sheet_to_json<(string | null)[]>(libro.Sheets[libro.SheetNames[0]], { header: 1, raw: false, defval: null })
-  const entero = (s: string | null) => (s ? Math.round(Number(String(s).replace(/,/g, ''))) || 0 : 0)
+  let factor = 1 // dólares: los montos se guardan en centavos
+  const entero = (s: string | null) => (s ? Math.round(Number(String(s).replace(/,/g, '')) * factor) || 0 : 0)
   const iCab = filas.findIndex((f) => f.includes('FECHA') && f.includes('CARGOS'))
   const iFechas = filas.findIndex((f) => f[0] === 'FECHA DESDE')
   const iSaldos = filas.findIndex((f) => f.includes('SALDO INICIAL'))
   if (iCab < 0 || iSaldos < 0) throw new Error(`${archivo.name}: no se reconoce como cartola provisoria del Bice`)
-  const saldoInicial = entero(filas[iSaldos + 1][filas[iSaldos].indexOf('SALDO INICIAL')])
   const cuenta = filas.find((f) => f.includes('CUENTA'))
-  const nCuenta = cuenta ? (filas[filas.indexOf(cuenta) + 1].find((x) => x && /^\d\d-\d{5}-\d$/.test(x)) ?? null) : null
+  const nCuenta = cuenta ? (filas[filas.indexOf(cuenta) + 1].find((x) => x && /^\d{2,3}(-\d{2,6}){1,2}-\d$/.test(x)) ?? null) : null
+  const moneda = cuentas.find((c) => mismaCuenta(c.numero, nCuenta))?.moneda === 'USD' ? 'USD' : 'CLP'
+  if (moneda === 'USD') factor = 100
+  const saldoInicial = entero(filas[iSaldos + 1][filas[iSaldos].indexOf('SALDO INICIAL')])
   const dmy = (s: string | null) => (s ? s.split('-').reverse().join('-') : '')
   const brutos: { fecha: string; nDoc: string; glosa: string; cargo: number; abono: number }[] = []
   for (let i = iCab + 1; i < filas.length && filas[i][0]; i++) {
@@ -137,9 +144,9 @@ export async function leerExcel(archivo: File): Promise<CartolaLeida> {
   let saldo = saldoInicial
   const movimientos = brutos.map((m) => ({ ...m, saldo: (saldo += m.abono - m.cargo) }))
   const [d, h] = filas[iFechas + 1]
-  return { archivo: archivo.name, moneda: 'CLP', cuenta: nCuenta, desde: dmy(d), hasta: dmy(h), saldoInicial, saldoFinal: saldo, movimientos }
+  return { archivo: archivo.name, moneda, cuenta: nCuenta, desde: dmy(d), hasta: dmy(h), saldoInicial, saldoFinal: saldo, movimientos }
 }
 
-export async function leerCartola(archivo: File): Promise<CartolaLeida> {
-  return /\.pdf$/i.test(archivo.name) ? leerPdf(archivo) : leerExcel(archivo)
+export async function leerCartola(archivo: File, cuentas: { numero: string | null; moneda: string }[] = []): Promise<CartolaLeida> {
+  return /\.pdf$/i.test(archivo.name) ? leerPdf(archivo) : leerExcel(archivo, cuentas)
 }

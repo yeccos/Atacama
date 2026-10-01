@@ -2,7 +2,7 @@
 import { formatoFecha, formatoNumero } from '@atacama/core'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
-import { leerCartola, type CartolaLeida } from './cartolaLector'
+import { leerCartola, mismaCuenta, soloDigitos, type CartolaLeida } from './cartolaLector'
 import { nombreMes } from './fechas'
 
 interface Cuenta { id: number; nombre: string; banco: string; moneda: string; numero: string | null }
@@ -77,16 +77,16 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
     setOcupado(true)
     try {
       const todas: CartolaLeida[] = []
-      for (const f of Array.from(archivos)) todas.push(await leerCartola(f))
-      todas.sort((a, b) => (a.cuenta ?? '').localeCompare(b.cuenta ?? '') || a.desde.localeCompare(b.desde) || a.hasta.localeCompare(b.hasta))
+      for (const f of Array.from(archivos)) todas.push(await leerCartola(f, cuentas))
+      todas.sort((a, b) => soloDigitos(a.cuenta).localeCompare(soloDigitos(b.cuenta)) || a.desde.localeCompare(b.desde) || a.hasta.localeCompare(b.hasta))
       // Cada cartola debe partir con el saldo con que terminó la anterior de su misma cuenta.
       const av: string[] = []
       todas.forEach((c, i) => {
         const ant = todas[i - 1]
-        if (ant && ant.cuenta === c.cuenta && c.saldoInicial !== ant.saldoFinal) {
+        if (ant && mismaCuenta(ant.cuenta, c.cuenta) && c.saldoInicial !== ant.saldoFinal) {
           av.push(`${c.archivo}: parte con ${fmt(c.saldoInicial, c.moneda)} pero la anterior terminó en ${fmt(ant.saldoFinal, c.moneda)}. Puede faltar una cartola.`)
         }
-        if (!cuentas.some((x) => x.numero === c.cuenta)) av.push(`${c.archivo}: la cuenta ${c.cuenta ?? 'sin número'} no está registrada (créala en Cuentas bancarias con ese número).`)
+        if (!cuentas.some((x) => mismaCuenta(x.numero, c.cuenta))) av.push(`${c.archivo}: la cuenta ${c.cuenta ?? 'sin número'} no está registrada (créala en Cuentas bancarias con ese número).`)
       })
       setAvisos(av)
       setLeidas(todas)
@@ -122,9 +122,9 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
       let duplicados = 0
       for (let i = 0; i < leidas.length; i++) {
         const c = leidas[i]
-        const cuenta = cuentas.find((x) => x.numero === c.cuenta)
+        const cuenta = cuentas.find((x) => mismaCuenta(x.numero, c.cuenta))
         if (!cuenta) throw new Error(`${c.archivo}: la cuenta ${c.cuenta ?? 'sin número'} no está registrada`)
-        const ultimaDeLaCuenta = !leidas.slice(i + 1).some((o) => o.cuenta === c.cuenta)
+        const ultimaDeLaCuenta = !leidas.slice(i + 1).some((o) => mismaCuenta(o.cuenta, c.cuenta))
         const ultimo = c.movimientos.at(-1)
         const r = await api(`/bancos/${cuenta.id}/importar`, 'POST', {
           movimientos: c.movimientos,
