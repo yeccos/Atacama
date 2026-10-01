@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-slate-50 text-slate-800;
+  font-family: system-ui, "Segoe UI", sans-serif;
+}
+.btn {
+  @apply rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-40;
+}
+.btn-primario {
+  @apply rounded bg-sky-700 px-3 py-1.5 text-sm text-white hover:bg-sky-800 disabled:opacity-40;
+}
+.campo {
+  @apply w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm;
+}

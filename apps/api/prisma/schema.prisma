@@ -1,0 +1,622 @@
+// Esquema Atacama Sea Salt.
+// Convenciones:
+//  - Montos: Int (CLP sin decimales; USD en centavos). Nunca float.
+//  - Precios unitarios, tipos de cambio, UF y porcentajes: Decimal.
+//  - Sin enums ni tipos exclusivos de un motor, para que el mismo esquema corra en SQLite y Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Base / seguridad ─────────────
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  usuario   String   @unique
+  nombre    String
+  claveHash String
+  rol       String   @default("admin")
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+  sesiones  Sesion[]
+}
+
+model Sesion {
+  token     String   @id
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expira    DateTime
+}
+
+model Auditoria {
+  id        Int      @id @default(autoincrement())
+  usuario   String
+  entidad   String
+  entidadId Int?
+  accion    String // CREAR | MODIFICAR | ELIMINAR
+  antes     String?
+  despues   String?
+  fecha     DateTime @default(now())
+
+  @@index([entidad, entidadId])
+}
+
+model Parametro {
+  id          Int     @id @default(autoincrement())
+  clave       String  @unique
+  valor       String
+  descripcion String?
+}
+
+model Indicador {
+  id    Int      @id @default(autoincrement())
+  tipo  String // USD_OBS | UF
+  fecha DateTime
+  valor Decimal
+
+  @@unique([tipo, fecha])
+}
+
+model CuentaContable {
+  id      Int     @id @default(autoincrement())
+  codigo  String  @unique
+  nombre  String
+  // VENTAS | COSTO_VENTAS | GAV | NO_OPERACIONAL | SOLO_FLUJO
+  seccion String
+  activa  Boolean @default(true)
+
+  proveedores  Proveedor[]
+  gastos       GastoDriver[]
+  reglas       ReglaCartola[]
+  documentos   Documento[]
+  movimientos  MovimientoBanco[]
+  costos       CostoEmbarque[]
+}
+
+// ───────────── Comercial ─────────────
+
+model Incoterm {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique
+  descripcion String?
+  // Evento que gatilla el reconocimiento de la venta en el EERR
+  eventoReconocimiento String @default("BL")
+
+  costos    IncotermCosto[]
+  clientes  Cliente[]
+  embarques Embarque[]
+}
+
+model TipoCosto {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique // TRANSPORTE_INTERNO | ADUANA | FLETE_MARITIMO | SEGURO | DESTINO
+  nombre String
+
+  incoterms IncotermCosto[]
+  gastos    GastoDriver[]
+}
+
+// Tabla configurable: qué costos asume la empresa bajo cada incoterm.
+model IncotermCosto {
+  id          Int       @id @default(autoincrement())
+  incotermId  Int
+  tipoCostoId Int
+  incoterm    Incoterm  @relation(fields: [incotermId], references: [id], onDelete: Cascade)
+  tipoCosto   TipoCosto @relation(fields: [tipoCostoId], references: [id], onDelete: Cascade)
+
+  @@unique([incotermId, tipoCostoId])
+}
+
+model OrigenMP {
+  id             Int     @id @default(autoincrement())
+  nombre         String  @unique
+  proveedorId    Int?
+  proveedor      Proveedor? @relation(fields: [proveedorId], references: [id])
+  usdPorTon      Decimal
+  fleteUsdPorTon Decimal @default(0)
+  nota           String?
+
+  clientes Cliente[]
+  camiones CamionMP[]
+  compras  CompraMPPlan[]
+}
+
+model Destino {
+  id     Int    @id @default(autoincrement())
+  puerto String @unique
+  pais   String
+
+  tarifas  TarifaFlete[]
+  clientes Cliente[]
+}
+
+model TarifaFlete {
+  id         Int       @id @default(autoincrement())
+  destinoId  Int
+  destino    Destino   @relation(fields: [destinoId], references: [id])
+  navieraId  Int?
+  naviera    Proveedor? @relation(fields: [navieraId], references: [id])
+  usdPorCont Decimal
+  desde      DateTime
+  hasta      DateTime?
+}
+
+// Producto terminado: define la formulación (yodada o no, tipo de antiaglomerante).
+model Producto {
+  id              Int     @id @default(autoincrement())
+  nombre          String  @unique
+  yodada          Boolean @default(false)
+  antiaglomerante String?
+  activo          Boolean @default(true)
+
+  receta    RecetaInsumo[]
+  clientes  Cliente[]
+  embarques Embarque[]
+}
+
+model Insumo {
+  id            Int      @id @default(autoincrement())
+  nombre        String   @unique
+  unidad        String   @default("kg")
+  // Costo neto por unidad, en CLP. Null = por completar (dispara advertencia).
+  costoUnitario Decimal?
+  proveedorId   Int?
+  proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
+
+  recetas RecetaInsumo[]
+}
+
+// Dosis de cada insumo por tonelada de producto terminado.
+model RecetaInsumo {
+  id          Int      @id @default(autoincrement())
+  productoId  Int
+  insumoId    Int
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  insumo      Insumo   @relation(fields: [insumoId], references: [id])
+  dosisPorTon Decimal
+
+  @@unique([productoId, insumoId])
+}
+
+model Cliente {
+  id              Int     @id @default(autoincrement())
+  nombre          String  @unique
+  contacto        String?
+  taxId           String?
+  pais            String?
+  moneda          String  @default("USD")
+  kgPorContenedor Int     @default(20000)
+  destinoId       Int?
+  destino         Destino?  @relation(fields: [destinoId], references: [id])
+  // Null = incoterm sin definir: la app avisa y no asume costos de exportación.
+  incotermId      Int?
+  incoterm        Incoterm? @relation(fields: [incotermId], references: [id])
+  origenId        Int?
+  origen          OrigenMP? @relation(fields: [origenId], references: [id])
+  productoId      Int?
+  producto        Producto? @relation(fields: [productoId], references: [id])
+  activo          Boolean @default(true)
+  nota            String?
+
+  precios   PrecioCliente[]
+  escalas   EscalaDescuento[]
+  hitos     HitoPagoCliente[]
+  reglas    ReglaFrecuencia[]
+  embarques Embarque[]
+}
+
+model PrecioCliente {
+  id        Int       @id @default(autoincrement())
+  clienteId Int
+  cliente   Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usdPorKg  Decimal
+  desde     DateTime
+  hasta     DateTime?
+}
+
+// Descuento según el número de contenedor dentro de un mismo pedido.
+model EscalaDescuento {
+  id           Int     @id @default(autoincrement())
+  clienteId    Int
+  cliente      Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  nContenedor  Int
+  pctDescuento Decimal
+
+  @@unique([clienteId, nContenedor])
+}
+
+model HitoPagoCliente {
+  id          Int     @id @default(autoincrement())
+  clienteId   Int
+  cliente     Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  orden       Int     @default(1)
+  pct         Decimal
+  evento      String // OC | PRODUCCION | ETD | BL | ETA | FACTURA | FECHA_FIJA
+  diasDesfase Int     @default(0)
+}
+
+// ───────────── Presupuesto ─────────────
+
+model VersionPresupuesto {
+  id            Int      @id @default(autoincrement())
+  nombre        String   @unique
+  tcPresupuesto Decimal
+  ufPresupuesto Decimal
+  mesInicio     DateTime
+  mesFin        DateTime
+  // Reproduce las fórmulas del Excel original, con sus errores, para validar cifras.
+  modoExcel     Boolean  @default(false)
+  nota          String?
+
+  reglas    ReglaFrecuencia[]
+  gastos    GastoDriver[]
+  embarques Embarque[]
+  compras   CompraMPPlan[]
+}
+
+model ReglaFrecuencia {
+  id           Int       @id @default(autoincrement())
+  versionId    Int
+  version      VersionPresupuesto @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  clienteId    Int
+  cliente      Cliente   @relation(fields: [clienteId], references: [id])
+  contenedores Int       @default(1)
+  cadaNMeses   Int       @default(1)
+  desde        DateTime
+  hasta        DateTime?
+}
+
+model GastoDriver {
+  id        Int      @id @default(autoincrement())
+  versionId Int
+  version   VersionPresupuesto @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  nombre    String
+  // FIJO_MENSUAL | ANUAL_PRORRATEADO | ANUAL_MES | POR_CONTENEDOR | POR_KG | POR_TONELADA | POR_TON_MP | POR_CAMION | FIJO_MAS_CONTENEDOR
+  driver    String
+  moneda    String   @default("CLP") // CLP | USD | UF
+  valorFijo     Decimal @default(0)
+  valorVariable Decimal @default(0)
+  mesEspecifico Int? // 1-12, para ANUAL_MES
+  // Si apunta a un tipo de costo, solo aplica cuando el incoterm del embarque lo incluye.
+  tipoCostoId Int?
+  tipoCosto   TipoCosto? @relation(fields: [tipoCostoId], references: [id])
+  cuentaId    Int?
+  cuenta      CuentaContable? @relation(fields: [cuentaId], references: [id])
+  proveedorId Int?
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
+  afectoIVA   Boolean @default(true)
+  // Egreso de caja que no va al EERR (inversiones, amortización de deuda).
+  soloFlujo   Boolean @default(false)
+  activo      Boolean @default(true)
+  nota        String?
+}
+
+model Empleado {
+  id           Int     @id @default(autoincrement())
+  nombre       String
+  cargo        String
+  bruto        Int?
+  liquido      Int?
+  costoEmpresa Int?
+  activo       Boolean @default(true)
+}
+
+model CompraMPPlan {
+  id        Int      @id @default(autoincrement())
+  versionId Int
+  version   VersionPresupuesto @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  origenId  Int
+  origen    OrigenMP @relation(fields: [origenId], references: [id])
+  mes       DateTime
+  camiones  Int
+
+  @@unique([versionId, origenId, mes])
+}
+
+// ───────────── Embarques ─────────────
+
+model Embarque {
+  id           Int      @id @default(autoincrement())
+  clienteId    Int
+  cliente      Cliente  @relation(fields: [clienteId], references: [id])
+  // Con versión = embarque proyectado del presupuesto. Null = embarque real.
+  versionId    Int?
+  version      VersionPresupuesto? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  productoId   Int?
+  producto     Producto? @relation(fields: [productoId], references: [id])
+  nOC          String?
+  contenedores Int      @default(1)
+  kgTotal      Int
+  usdPorKg     Decimal
+  totalUsdCent Int
+  incotermId   Int?
+  incoterm     Incoterm? @relation(fields: [incotermId], references: [id])
+  naviera      String?
+  booking      String?
+  puertoOrigen String?
+  nBL          String?
+  fOCEst    DateTime?
+  fOCReal   DateTime?
+  fProdEst  DateTime?
+  fProdReal DateTime?
+  fETDEst   DateTime?
+  fETDReal  DateTime?
+  fBLEst    DateTime?
+  fBLReal   DateTime?
+  fETAEst   DateTime?
+  fETAReal  DateTime?
+  // PROYECTADO | CONFIRMADO | PRODUCIDO | EMBARCADO | LLEGADO | COBRADO
+  estado    String   @default("PROYECTADO")
+  nota      String?
+
+  hitos    HitoCobro[]
+  costos   CostoEmbarque[]
+  consumos ConsumoMP[]
+  factura  FacturaExportacion?
+}
+
+model HitoCobro {
+  id            Int      @id @default(autoincrement())
+  embarqueId    Int
+  embarque      Embarque @relation(fields: [embarqueId], references: [id], onDelete: Cascade)
+  pct           Decimal
+  evento        String
+  montoUsdCent  Int
+  fechaEsperada DateTime?
+  diasAtraso    Int      @default(0)
+  estado        String   @default("PENDIENTE") // PENDIENTE | PARCIAL | COBRADO
+
+  cobros CobroCliente[]
+}
+
+model CostoEmbarque {
+  id           Int      @id @default(autoincrement())
+  embarqueId   Int
+  embarque     Embarque @relation(fields: [embarqueId], references: [id], onDelete: Cascade)
+  concepto     String
+  moneda       String   @default("CLP")
+  monto        Int
+  fechaPagoEst DateTime?
+  cuentaId     Int?
+  cuenta       CuentaContable? @relation(fields: [cuentaId], references: [id])
+  documentoId  Int?
+  documento    Documento? @relation(fields: [documentoId], references: [id])
+}
+
+model FacturaExportacion {
+  id           Int      @id @default(autoincrement())
+  embarqueId   Int      @unique
+  embarque     Embarque @relation(fields: [embarqueId], references: [id])
+  folio        String
+  fecha        DateTime
+  totalUsdCent Int
+  tcFactura    Decimal
+}
+
+model CobroCliente {
+  id       Int       @id @default(autoincrement())
+  hitoId   Int
+  hito     HitoCobro @relation(fields: [hitoId], references: [id])
+  fecha    DateTime
+  usdCent  Int
+  cuentaId Int
+  cuenta   CuentaBancaria @relation(fields: [cuentaId], references: [id])
+}
+
+// ───────────── Materia prima por camión ─────────────
+
+// Cada camión es un lote: registra su merma real y va dejando saldo a medida que se consume.
+model CamionMP {
+  id                  Int      @id @default(autoincrement())
+  origenId            Int
+  origen              OrigenMP @relation(fields: [origenId], references: [id])
+  fecha               DateTime
+  guia                String?
+  toneladasFacturadas Decimal  @default(28)
+  toneladasRecibidas  Decimal
+  // Merma real medida para este camión. Null = usa la merma por defecto (parámetro).
+  mermaPct            Decimal?
+  documentoId         Int?
+  documento           Documento? @relation(fields: [documentoId], references: [id])
+  nota                String?
+
+  consumos ConsumoMP[]
+}
+
+model ConsumoMP {
+  id         Int      @id @default(autoincrement())
+  camionId   Int
+  camion     CamionMP @relation(fields: [camionId], references: [id])
+  embarqueId Int?
+  embarque   Embarque? @relation(fields: [embarqueId], references: [id], onDelete: Cascade)
+  fecha      DateTime
+  toneladasMP       Decimal // MP bruta sacada del camión
+  toneladasProducto Decimal // producto terminado obtenido
+}
+
+// ───────────── Proveedores / cuentas por pagar ─────────────
+
+model Proveedor {
+  id          Int     @id @default(autoincrement())
+  rut         String?
+  nombre      String  @unique
+  giro        String?
+  moneda      String  @default("CLP")
+  diasPago    Int     @default(0)
+  // GENERAL | MP | ADUANA | NAVIERA | TRANSPORTE
+  tipo        String  @default("GENERAL")
+  banco       String?
+  cuentaBanco String?
+  cuentaId    Int?
+  cuenta      CuentaContable? @relation(fields: [cuentaId], references: [id])
+  activo      Boolean @default(true)
+
+  origenes   OrigenMP[]
+  tarifas    TarifaFlete[]
+  insumos    Insumo[]
+  gastos     GastoDriver[]
+  documentos Documento[]
+  pagos      Pago[]
+  deudas     Deuda[]
+  reglas     ReglaCartola[]
+}
+
+model Documento {
+  id          Int       @id @default(autoincrement())
+  proveedorId Int
+  proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
+  tipo        String // FACTURA | BOLETA_HONORARIOS | NOTA_CREDITO | NOTA_DEBITO
+  folio       String
+  emision     DateTime
+  vencimiento DateTime?
+  moneda      String    @default("CLP")
+  neto        Int       @default(0)
+  iva         Int       @default(0)
+  exento      Int       @default(0)
+  total       Int
+  pdfPath     String?
+  cuentaId    Int?
+  cuenta      CuentaContable? @relation(fields: [cuentaId], references: [id])
+  nota        String?
+
+  aplicaciones AplicacionPago[]
+  costos       CostoEmbarque[]
+  camiones     CamionMP[]
+
+  @@unique([proveedorId, tipo, folio])
+}
+
+model Pago {
+  id               Int       @id @default(autoincrement())
+  proveedorId      Int
+  proveedor        Proveedor @relation(fields: [proveedorId], references: [id])
+  fecha            DateTime
+  monto            Int
+  cuentaBancariaId Int?
+  cuentaBancaria   CuentaBancaria? @relation(fields: [cuentaBancariaId], references: [id])
+  nota             String?
+
+  aplicaciones AplicacionPago[]
+}
+
+model AplicacionPago {
+  id          Int       @id @default(autoincrement())
+  pagoId      Int
+  pago        Pago      @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  documentoId Int
+  documento   Documento @relation(fields: [documentoId], references: [id])
+  monto       Int
+}
+
+model Deuda {
+  id            Int       @id @default(autoincrement())
+  acreedor      String
+  proveedorId   Int?
+  proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
+  moneda        String    @default("CLP")
+  montoOriginal Int?
+  // Null = saldo por completar (dispara advertencia).
+  saldo         Int?
+  cuota         Int?
+  tasa          Decimal?
+  inicio        DateTime?
+  fin           DateTime?
+  nota          String?
+
+  cuotas CuotaDeuda[]
+}
+
+model CuotaDeuda {
+  id          Int      @id @default(autoincrement())
+  deudaId     Int
+  deuda       Deuda    @relation(fields: [deudaId], references: [id], onDelete: Cascade)
+  vencimiento DateTime
+  capital     Int
+  interes     Int      @default(0)
+  estado      String   @default("PENDIENTE")
+}
+
+// ───────────── Bancos / FX / conciliación ─────────────
+
+model CuentaBancaria {
+  id                Int       @id @default(autoincrement())
+  nombre            String    @unique
+  banco             String
+  moneda            String
+  numero            String?
+  saldoInicial      Int       @default(0)
+  fechaSaldoInicial DateTime?
+  // Mapeo de columnas de la cartola, en JSON.
+  mapeoCartola      String?
+
+  movimientos MovimientoBanco[]
+  cobros      CobroCliente[]
+  pagos       Pago[]
+  ventasOrigen  VentaUSD[] @relation("origen")
+  ventasDestino VentaUSD[] @relation("destino")
+}
+
+model MovimientoBanco {
+  id       Int      @id @default(autoincrement())
+  cuentaId Int
+  cuenta   CuentaBancaria @relation(fields: [cuentaId], references: [id])
+  fecha    DateTime
+  glosa    String
+  nDoc     String?
+  cargo    Int      @default(0)
+  abono    Int      @default(0)
+  saldo    Int?
+  hash     String // para detectar duplicados al reimportar
+  estado   String   @default("SIN_CONCILIAR") // SIN_CONCILIAR | SUGERIDO | CONCILIADO
+  cuentaContableId Int?
+  cuentaContable   CuentaContable? @relation(fields: [cuentaContableId], references: [id])
+
+  conciliaciones Conciliacion[]
+
+  @@unique([cuentaId, hash])
+}
+
+model Conciliacion {
+  id           Int     @id @default(autoincrement())
+  movimientoId Int
+  movimiento   MovimientoBanco @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  // PAGO | HITO_COBRO | CUOTA_DEUDA | REMUNERACION | VENTA_USD | GASTO
+  tipoDestino  String
+  destinoId    Int?
+  monto        Int
+}
+
+model ReglaCartola {
+  id          Int     @id @default(autoincrement())
+  patron      String
+  cuentaId    Int
+  cuenta      CuentaContable @relation(fields: [cuentaId], references: [id])
+  proveedorId Int?
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
+  activa      Boolean @default(true)
+}
+
+model VentaUSD {
+  id              Int      @id @default(autoincrement())
+  fecha           DateTime
+  usdCent         Int
+  tcVenta         Decimal
+  clpRecibidos    Int
+  cuentaOrigenId  Int
+  cuentaOrigen    CuentaBancaria @relation("origen", fields: [cuentaOrigenId], references: [id])
+  cuentaDestinoId Int
+  cuentaDestino   CuentaBancaria @relation("destino", fields: [cuentaDestinoId], references: [id])
+}
+
+model PeriodoIVA {
+  id                 Int       @id @default(autoincrement())
+  mes                DateTime  @unique
+  ivaCredito         Int       @default(0)
+  devolucionEsperada Int       @default(0)
+  fechaDevolucionEst DateTime?
+}

@@ -1,0 +1,379 @@
+erDiagram
+    %% ===== Base / seguridad =====
+    Usuario ||--o{ Auditoria : "registra"
+    Usuario {
+        int id PK
+        string usuario
+        string claveHash
+        string rol
+    }
+    Auditoria {
+        int id PK
+        int usuarioId FK
+        string entidad
+        int entidadId
+        string accion
+        json antes
+        json despues
+        datetime fecha
+    }
+    Parametro {
+        string clave PK
+        string valor
+    }
+    Indicador {
+        int id PK
+        string tipo "USD_OBS | UF"
+        date fecha
+        decimal valor
+    }
+    CuentaContable {
+        int id PK
+        string codigo
+        string nombre
+        string seccionEERR
+        string lineaPresupuesto
+    }
+
+    %% ===== Comercial =====
+    Cliente ||--o{ PrecioCliente : "vigencias"
+    Cliente ||--o{ EscalaDescuento : "por pedido"
+    Cliente ||--o{ HitoPagoCliente : "forma de pago"
+    Cliente ||--o{ ReglaFrecuencia : "proyeccion"
+    Cliente ||--o{ Embarque : ""
+    Cliente }o--|| Incoterm : "por defecto"
+    Cliente }o--|| OrigenMP : ""
+    Cliente }o--|| Destino : "puerto"
+    Cliente {
+        int id PK
+        string nombre
+        string taxId
+        string pais
+        string moneda
+        int kgPorContenedor
+        int incotermId FK "nullable = alerta"
+    }
+    PrecioCliente {
+        int id PK
+        int clienteId FK
+        decimal usdPorKg
+        date desde
+        date hasta
+    }
+    EscalaDescuento {
+        int id PK
+        int clienteId FK
+        int nContenedor
+        decimal pctDescuento
+    }
+    HitoPagoCliente {
+        int id PK
+        int clienteId FK
+        decimal pct
+        string evento "OC|PROD|ETD|BL|ETA|FACTURA|FIJA"
+        int diasDesfase
+    }
+    Incoterm ||--o{ IncotermCosto : "que costos asume"
+    IncotermCosto }o--|| TipoCosto : ""
+    Incoterm {
+        int id PK
+        string codigo
+        string eventoReconocimiento
+    }
+    TipoCosto {
+        int id PK
+        string codigo "TRANSP_INT|ADUANA|FLETE_MAR|SEGURO|DESTINO"
+    }
+    OrigenMP {
+        int id PK
+        string nombre "Albemarle | SQM"
+        int proveedorId FK
+        decimal usdPorTon
+        decimal fleteUsdPorTon
+    }
+    Destino ||--o{ TarifaFlete : ""
+    TarifaFlete }o--o| Proveedor : "naviera"
+    Destino {
+        int id PK
+        string puerto
+        string pais
+    }
+    TarifaFlete {
+        int id PK
+        int destinoId FK
+        decimal usdPorCont
+        date desde
+    }
+
+    %% ===== Presupuesto =====
+    VersionPresupuesto ||--o{ ReglaFrecuencia : ""
+    VersionPresupuesto ||--o{ GastoDriver : ""
+    VersionPresupuesto ||--o{ Embarque : "proyectados"
+    VersionPresupuesto ||--o{ CompraMPPlan : "camiones por mes"
+    VersionPresupuesto ||--o{ Supuesto : "overrides TC, precios"
+    VersionPresupuesto {
+        int id PK
+        string nombre
+        decimal tcPresupuesto
+        date mesInicio
+        date mesFin
+        bool modoExcelLegacy
+    }
+    ReglaFrecuencia {
+        int id PK
+        int clienteId FK
+        int contenedores
+        int cadaNMeses
+        date desde
+        date hasta
+    }
+    GastoDriver }o--|| CuentaContable : ""
+    GastoDriver }o--o| Proveedor : ""
+    GastoDriver {
+        int id PK
+        string nombre
+        string driver "FIJO|ANUAL_12|ANUAL_MES|X_CONT|X_KG|X_TON_MP|X_CAMION|FIJO_MAS_VAR"
+        string moneda "CLP|USD|UF"
+        decimal valorFijo
+        decimal valorVariable
+        int mesEspecifico
+        bool afectoIVA
+        bool soloFlujo "inversion / deuda"
+    }
+    Empleado {
+        int id PK
+        string nombre
+        string cargo
+        int bruto
+        int liquido
+        int costoEmpresa
+    }
+
+    %% ===== Embarques =====
+    Embarque ||--o{ HitoCobro : "genera"
+    Embarque ||--o{ CostoEmbarque : "genera"
+    Embarque ||--o{ ConsumoMP : "consumo"
+    CamionMP ||--o{ ConsumoMP : "saldo por camion"
+    OrigenMP ||--o{ CamionMP : ""
+    Producto ||--o{ RecetaInsumo : "formulacion"
+    Insumo ||--o{ RecetaInsumo : ""
+    Producto ||--o{ Embarque : ""
+    Cliente }o--o| Producto : "por defecto"
+    Embarque ||--o| FacturaExportacion : ""
+    Embarque {
+        int id PK
+        int clienteId FK
+        int versionId FK "null si real"
+        string nOC
+        int contenedores
+        int kgTotal
+        decimal usdPorKg
+        int incotermId FK
+        string naviera
+        string booking
+        string nBL
+        date fOC_est
+        date fOC_real
+        date fProd_est
+        date fProd_real
+        date fETD_est
+        date fETD_real
+        date fBL_est
+        date fBL_real
+        date fETA_est
+        date fETA_real
+        string estado
+    }
+    HitoCobro {
+        int id PK
+        int embarqueId FK
+        decimal pct
+        int montoUsdCent
+        date fechaEsperada
+        int diasAtraso
+        string estado
+    }
+    CostoEmbarque }o--|| CuentaContable : ""
+    CostoEmbarque {
+        int id PK
+        int embarqueId FK
+        string concepto
+        string moneda
+        int monto
+        date fechaPagoEst
+        int documentoId FK "cuando llega la factura"
+    }
+    FacturaExportacion {
+        int id PK
+        int embarqueId FK
+        string folio
+        date fecha
+        int totalUsdCent
+        decimal tcFactura
+    }
+    CompraMPPlan {
+        int id PK
+        int origenId FK
+        date mes
+        int camiones
+    }
+    CamionMP {
+        int id PK
+        int origenId FK
+        date fecha
+        string guia
+        decimal toneladasFacturadas
+        decimal toneladasRecibidas
+        decimal mermaPct "real, por camion"
+    }
+    ConsumoMP {
+        int id PK
+        int camionId FK
+        int embarqueId FK
+        decimal toneladasMP
+        decimal toneladasProducto
+    }
+    Producto {
+        int id PK
+        string nombre
+        bool yodada
+        string antiaglomerante
+    }
+    Insumo {
+        int id PK
+        string nombre
+        string unidad
+        decimal costoUnitario
+    }
+    RecetaInsumo {
+        int productoId FK
+        int insumoId FK
+        decimal dosisPorTon
+    }
+
+    %% ===== Proveedores / CxP =====
+    Proveedor ||--o{ Documento : ""
+    Proveedor ||--o{ Pago : ""
+    Proveedor }o--o| CuentaContable : "por defecto"
+    Proveedor {
+        int id PK
+        string rut
+        string nombre
+        string giro
+        string moneda
+        int diasPago
+        string tipo "general|aduana|naviera|MP"
+    }
+    Documento ||--o{ AplicacionPago : ""
+    Pago ||--o{ AplicacionPago : ""
+    Documento {
+        int id PK
+        int proveedorId FK
+        string tipo "FAC|BH|NC|ND"
+        string folio
+        date emision
+        date vencimiento
+        string moneda
+        int neto
+        int iva
+        int exento
+        int total
+        string pdfPath
+        int cuentaId FK
+    }
+    Pago {
+        int id PK
+        int proveedorId FK
+        date fecha
+        int monto
+        int cuentaBancariaId FK
+    }
+    AplicacionPago {
+        int pagoId FK
+        int documentoId FK
+        int monto
+    }
+    Deuda ||--o{ CuotaDeuda : ""
+    Deuda }o--o| Proveedor : "acreedor"
+    Deuda {
+        int id PK
+        string acreedor
+        string moneda
+        int montoOriginal
+        int saldo
+        decimal tasa
+        date inicio
+        date fin
+    }
+    CuotaDeuda {
+        int id PK
+        int deudaId FK
+        date vencimiento
+        int capital
+        int interes
+        string estado
+    }
+
+    %% ===== Bancos / FX / conciliacion =====
+    CuentaBancaria ||--o{ MovimientoBanco : "cartola"
+    CuentaBancaria ||--o| MapeoCartola : "columnas"
+    CuentaBancaria {
+        int id PK
+        string banco
+        string moneda
+        int saldoInicial
+        date fechaSaldoInicial
+    }
+    MovimientoBanco {
+        int id PK
+        int cuentaId FK
+        date fecha
+        string glosa
+        string nDoc
+        int cargo
+        int abono
+        int saldo
+        string hashDuplicado
+        string estado "SIN|SUGERIDO|CONCILIADO"
+        int cuentaContableId FK
+    }
+    MovimientoBanco ||--o{ Conciliacion : "1:N / N:1"
+    Conciliacion {
+        int id PK
+        int movimientoId FK
+        string tipoDestino "PAGO|HITO|CUOTA|REMUNERACION|VENTA_USD|GASTO"
+        int destinoId
+        int monto
+    }
+    ReglaCartola }o--|| CuentaContable : ""
+    ReglaCartola {
+        int id PK
+        string patronGlosa
+        int cuentaContableId FK
+        int proveedorId FK
+    }
+    VentaUSD }o--|| CuentaBancaria : "origen USD"
+    VentaUSD {
+        int id PK
+        date fecha
+        int usdCent
+        decimal tcVenta
+        int clpRecibidos
+        int cuentaOrigenId FK
+        int cuentaDestinoId FK
+    }
+    HitoCobro ||--o{ CobroCliente : ""
+    CobroCliente }o--|| CuentaBancaria : ""
+    CobroCliente {
+        int id PK
+        int hitoId FK
+        date fecha
+        int usdCent
+        int cuentaId FK
+    }
+    PeriodoIVA {
+        date mes PK
+        int ivaCredito
+        int devolucionEsperada
+        date fechaDevolucionEst
+    }

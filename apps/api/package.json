@@ -1,0 +1,23 @@
+{
+  "name": "@atacama/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "db:push": "prisma db push",
+    "seed": "tsx --env-file=.env prisma/seed.ts",
+    "start": "prisma db push --skip-generate && tsx prisma/seed.ts && tsx src/server.ts"
+  },
+  "dependencies": {
+    "@atacama/core": "*",
+    "@prisma/client": "^6.19.3",
+    "fastify": "^5.2.0",
+    "tsx": "^4.19.0",
+    "prisma": "^6.19.3",
+    "@fastify/static": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}
