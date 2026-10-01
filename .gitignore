@@ -4,3 +4,7 @@ dist
 *.db
 *.db-journal
 apps/api/adjuntos
+
+# Documentos financieros: nunca al repositorio
+facturas/*
+!facturas/LEEME.txt
