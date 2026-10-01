@@ -204,8 +204,10 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   const ivaCredito = vacia()
   for (const l of e.ppto.egresos) {
     if (l.tipo === 'REMUNERACION') continue // se reemplaza por sueldos líquidos + Previred
+    // Plazo del proveedor: el pago llega 'desfase' meses después de la compra. El IVA crédito nace con la factura.
+    const desfase = Math.round((l.diasPago ?? 0) / 30)
     const valores = e.meses.map((m) => {
-      const i = pp(m)
+      const i = pp(m) - desfase
       return i < 0 || l.valores[i] === 0 ? 0 : -l.valores[i] * (l.afectoIVA ? factorIVA : 1)
     })
     e.meses.forEach((m, i) => {

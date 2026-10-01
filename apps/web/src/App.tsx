@@ -2,7 +2,7 @@ import { formatoFecha } from '@atacama/core'
 import { useEffect, useState } from 'react'
 import { api, sesion } from './api'
 import Login from './Login'
-import Flujo from './Flujo'
+import FlujoPagina from './FlujoPagina'
 import Maestro from './Maestro'
 import Presupuesto from './Presupuesto'
 import { PAGINAS, type Pagina } from './paginas'
@@ -232,7 +232,7 @@ export default function App() {
       <main className="min-w-0 flex-1 p-6">
         {actual === 'inicio' && <Inicio />}
         {actual === 'presupuesto' && <Presupuesto irA={setActual} />}
-        {actual === 'flujo' && <Flujo />}
+        {actual === 'flujo' && <FlujoPagina />}
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'auditoria' && <Auditoria />}
         {pagina && <PaginaMaestro key={pagina.id} pagina={pagina} />}

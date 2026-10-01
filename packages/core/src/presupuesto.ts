@@ -13,6 +13,8 @@ export interface OrigenIn {
   nombre: string
   usdPorTon: number
   fleteUsdPorTon: number
+  /** Días de pago del proveedor de esta materia prima. */
+  diasPago?: number
 }
 
 export interface ClienteIn {
@@ -43,6 +45,7 @@ export interface InsumoIn {
   base: string
   cantidadPorBase: number | null
   afectoIVA: boolean
+  diasPago?: number
 }
 
 export interface GastoIn {
@@ -59,6 +62,7 @@ export interface GastoIn {
   soloFlujo: boolean
   modoExcel: 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE'
   deudaId: number | null
+  diasPago?: number
 }
 
 export interface EmpleadoIn {
@@ -103,6 +107,8 @@ export interface LineaPpto {
   /** Cómo se calcula la línea, en palabras, y la pantalla donde se editan sus datos. */
   formula?: string
   editarEn?: string
+  /** Días entre la compra y el pago (plazo del proveedor). */
+  diasPago?: number
   tipo: 'MP' | 'VARIABLE' | 'FLETE' | 'REMUNERACION' | 'FIJO'
 }
 
@@ -195,7 +201,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     })
     if (valores.some((v) => v !== 0)) {
       egresos.push({
-        clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp',
+        clave: 'mp-' + o.id, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp', diasPago: o.diasPago,
         formula: `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (US$${n0(o.usdPorTon)} + US$${n0(o.fleteUsdPorTon)} de flete) × dólar`,
       })
     }
@@ -228,7 +234,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       const alcance = ins.tipo === 'ANTIAGLOMERANTE' ? ', solo de los productos que usan este antiaglomerante' : ins.tipo === 'YODO' ? ', solo de los productos yodados' : ''
       const por = ins.base === 'POR_KG' ? 'kg vendidos' : ins.base === 'POR_CONTENEDOR' ? 'contenedores' : ins.base === 'POR_CAMION' ? 'camiones' : 'toneladas vendidas'
       egresos.push({
-        clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE', editarEn: 'productos',
+        clave: 'insumo-' + ins.id, nombre: ins.nombre, valores, afectoIVA: ins.afectoIVA, tipo: 'VARIABLE', editarEn: 'productos', diasPago: ins.diasPago,
         formula: `Insumo: $${n0(ins.costoUnitario)} por unidad × ${n0(ins.cantidadPorBase)} unidades por cada ${ins.base === 'POR_TONELADA' ? 'tonelada' : ins.base === 'POR_KG' ? 'kg' : ins.base === 'POR_CONTENEDOR' ? 'contenedor' : 'camión'} × ${por} del mes${alcance}`,
       })
     }
@@ -317,6 +323,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
       soloFlujo: g.soloFlujo,
       deudaId: g.deudaId,
       editarEn: 'versiones',
+      diasPago: g.diasPago,
       formula: formulaGasto(g),
       tipo: g.driver === 'POR_CONTENEDOR' || g.driver === 'POR_KG' || g.driver === 'POR_TONELADA' ? 'VARIABLE' : 'FIJO',
     })

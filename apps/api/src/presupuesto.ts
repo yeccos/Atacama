@@ -2,14 +2,18 @@
 // entrada del motor (@atacama/core) y devuelven el resultado; nada se calcula aquí.
 import {
   armarFlujo,
+  armarFlujoSemanal,
   calcularPresupuesto,
   cobrosProyectados,
   economiaPorContenedor,
   listaMeses,
+  PARAMS_SEMANAL_POR_DEFECTO,
   resolverContenedores,
+  resumirFlujoSemanal,
   sumarDias,
   type CobroFlujo,
   type EntradaPpto,
+  type ResultadoPpto,
 } from '@atacama/core'
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
@@ -43,10 +47,10 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
     include: { precios: true, escalas: true, hitos: true, incoterm: true, producto: true, destino: { include: { tarifas: true } } },
     orderBy: { id: 'asc' },
   })
-  const origenes = await prisma.origenMP.findMany({ orderBy: { id: 'asc' } })
-  const gastosDb = await prisma.gastoDriver.findMany({ where: { versionId, activo: true }, include: { tipoCosto: true }, orderBy: { id: 'asc' } })
+  const origenes = await prisma.origenMP.findMany({ include: { proveedor: true }, orderBy: { id: 'asc' } })
+  const gastosDb = await prisma.gastoDriver.findMany({ where: { versionId, activo: true }, include: { tipoCosto: true, proveedor: true }, orderBy: { id: 'asc' } })
   const empleados = await prisma.empleado.findMany({ where: { activo: true }, orderBy: { id: 'asc' } })
-  const insumos = await prisma.insumo.findMany({ orderBy: { id: 'asc' } })
+  const insumos = await prisma.insumo.findMany({ include: { proveedor: true }, orderBy: { id: 'asc' } })
   const matriz = await prisma.incotermCosto.findMany({ include: { incoterm: true, tipoCosto: true } })
   const incotermCostos: Record<string, string[]> = {}
   for (const i of await prisma.incoterm.findMany()) incotermCostos[i.codigo] = []
@@ -95,15 +99,15 @@ async function cargarEntrada(versionId: number, op: Opciones = {}) {
     tonPorCamion: par.numero('toneladasPorCamion', 28),
     stockInicialTon: recibido - consumido,
     clientes,
-    origenes: origenes.map((o) => ({ id: o.id, nombre: o.nombre, usdPorTon: num(o.usdPorTon), fleteUsdPorTon: num(o.fleteUsdPorTon) })),
+    origenes: origenes.map((o) => ({ id: o.id, nombre: o.nombre, usdPorTon: num(o.usdPorTon), fleteUsdPorTon: num(o.fleteUsdPorTon), diasPago: o.proveedor?.diasPago ?? 0 })),
     gastos: gastosDb.map((g) => ({
       id: g.id, nombre: g.nombre, driver: g.driver, moneda: g.moneda,
       valorFijo: num(g.valorFijo), valorVariable: num(g.valorVariable), mesEspecifico: g.mesEspecifico,
       tipoCosto: g.tipoCosto?.codigo ?? null, afectoIVA: g.afectoIVA, soloFlujo: g.soloFlujo,
-      modoExcel: g.modoExcel as 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE', deudaId: g.deudaId,
+      modoExcel: g.modoExcel as 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE', deudaId: g.deudaId, diasPago: g.proveedor?.diasPago ?? 0,
     })),
     insumos: insumos.map((i) => ({
-      id: i.id, nombre: i.nombre, tipo: i.tipo, base: i.base, afectoIVA: i.afectoIVA,
+      id: i.id, nombre: i.nombre, tipo: i.tipo, base: i.base, afectoIVA: i.afectoIVA, diasPago: i.proveedor?.diasPago ?? 0,
       costoUnitario: i.costoUnitario === null ? null : num(i.costoUnitario),
       cantidadPorBase: i.cantidadPorBase === null ? null : num(i.cantidadPorBase),
     })),
@@ -173,65 +177,149 @@ export function registrarPresupuesto(app: FastifyInstance) {
     return despues
   })
 
+  /** Flujo mensual (24 meses por defecto). */
   app.get('/api/flujo/:id', async (req, reply) => {
     const q = req.query as { tc?: string; meses?: string }
-    const c = await cargarEntrada(Number((req.params as any).id), { tc: q.tc ? Number(q.tc) : undefined })
-    if (!c) return reply.code(404).send({ error: 'La versión no existe' })
-    const { entrada, par } = c
-    const ppto = calcularPresupuesto(entrada, 'corregido')
-    const advertencias = [...ppto.advertencias]
-
-    // Cobros reales: hitos pendientes de embarques reales, con sus días de atraso.
-    const embarques = await prisma.embarque.findMany({ where: { versionId: null, estado: { not: 'COBRADO' } }, include: { hitos: true, cliente: true } })
-    const cobros: CobroFlujo[] = []
-    const cubiertos = new Set<string>()
-    for (const e of embarques) {
-      const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO' && h.fechaEsperada)
-      const ref = e.fETDReal ?? e.fETDEst ?? pendientes[0]?.fechaEsperada
-      if (ref) cubiertos.add(`${e.clienteId}|${iso(ref).slice(0, 7)}`)
-      for (const h of pendientes) {
-        cobros.push({ clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(iso(h.fechaEsperada!), h.diasAtraso), usdCent: h.montoUsdCent, origen: 'REAL' })
-      }
-    }
-
+    const prep = await prepararFlujo(Number((req.params as any).id), { tc: q.tc ? Number(q.tc) : undefined })
+    if (!prep) return reply.code(404).send({ error: 'La versión no existe' })
+    const { c, ppto, par } = prep
     const nMeses = Math.min(Number(q.meses) || 24, ppto.meses.length)
     const mesesPpto = ppto.meses.slice(0, nMeses)
-    const proy = cobrosProyectados(
-      c.clientes, mesesPpto,
-      Object.fromEntries(ppto.contenedores.map((x) => [x.clienteId, x.valores.slice(0, nMeses)])),
-      cubiertos,
-      { diaETD: par.numero('diaETD', 15), diasOCAntesETD: par.numero('diasOCAntesETD', 30), diasProduccionAntesETD: par.numero('diasProduccionAntesETD', 7) },
-    )
-    advertencias.push(...proy.advertencias)
-
     // Mes previo al presupuesto: la última semana de septiembre vive en partidas manuales.
     const [a, m] = mesesPpto[0].split('-').map(Number)
     const previo = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`
-    const meses = [previo, ...mesesPpto]
-
-    const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
-    const partidas = (await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto }))
-
-    const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null } }, include: { gastos: true } })
-    const deudas = deudasDb
-      .filter((d) => d.gastos.length === 0)
-      .map((d) => ({ acreedor: d.acreedor, cuota: d.cuota!, desde: d.inicio ? iso(d.inicio).slice(0, 7) : null, hasta: d.fin ? iso(d.fin).slice(0, 7) : null }))
-    for (const d of deudas) if (!d.hasta) advertencias.push(`Cuota ${d.acreedor}: sin fecha de término; se proyecta ${par.numero('mesesCuotaSinFin', 12)} meses.`)
-
-    const flujo = armarFlujo({
-      ppto, tc: entrada.tc, meses,
-      saldoInicial: cuentas.reduce((s, x) => s + x.saldoInicial, 0),
-      cobros: [...cobros, ...proy.cobros],
-      partidas, deudas,
-      sueldosLiquidos: (await prisma.empleado.findMany({ where: { activo: true } })).reduce((s, e) => s + (e.liquido ?? 0), 0),
-      previredMensual: par.numero('previredMensual', 0),
-      ivaPct: par.numero('ivaPct', 19),
-      devolucionIVAModo: par.texto('devolucionIVAModo', 'fijo') === 'calculado' ? 'calculado' : 'fijo',
-      devolucionIVAMensual: par.numero('devolucionIVAMensual', 0),
-      rezagoIVAMeses: par.numero('rezagoIVAMeses', 1),
-      mesesSinFin: par.numero('mesesCuotaSinFin', 12),
-      saldoMinimo: par.numero('saldoMinimoCaja', 0),
-    })
-    return { version: { id: c.version.id, nombre: c.version.nombre, tc: entrada.tc }, flujo, advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo') }
+    const flujo = armarFlujo({ ...prep.base, meses: [previo, ...mesesPpto] })
+    return { version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc }, flujo, advertencias: prep.advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo') }
   })
+
+  /** Flujo semanal: una columna de cierre más N semanas desde el primer día del presupuesto. */
+  app.get('/api/flujo/:id/semanal', async (req, reply) => {
+    const q = req.query as { tc?: string; semanas?: string; atraso?: string; costos?: string; sin?: string }
+    const prep = await prepararFlujo(Number((req.params as any).id), {
+      tc: q.tc ? Number(q.tc) : undefined, atrasoCobros: Number(q.atraso) || 0, costosPct: Number(q.costos) || 0, sinCliente: q.sin ? Number(q.sin) : undefined,
+    })
+    if (!prep) return reply.code(404).send({ error: 'La versión no existe' })
+    const flujo = armarFlujoSemanal(prep.semanal(Math.min(Number(q.semanas) || 13, 52)))
+    return {
+      version: { id: prep.c.version.id, nombre: prep.c.version.nombre, tc: prep.c.entrada.tc },
+      flujo, resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo), advertencias: prep.advertencias,
+    }
+  })
+
+  /** Compara escenarios: cada uno cambia el dólar, el atraso de los cobros, los costos o el cliente que se pierde. */
+  app.post('/api/escenarios/:id', async (req, reply) => {
+    const versionId = Number((req.params as any).id)
+    const body = (req.body ?? {}) as {
+      semanas?: number
+      escenarios?: { nombre?: string; tc?: number | null; atrasoCobros?: number | null; costosPct?: number | null; sinCliente?: number | null }[]
+    }
+    const lista = (body.escenarios ?? []).slice(0, 5)
+    if (lista.length === 0) return reply.code(400).send({ error: 'Falta al menos un escenario' })
+    const semanas = Math.min(Number(body.semanas) || 13, 52)
+    const resultados = []
+    let periodos: unknown = null
+    for (const [i, esc] of lista.entries()) {
+      const prep = await prepararFlujo(versionId, {
+        tc: esc.tc || undefined, atrasoCobros: esc.atrasoCobros || 0, costosPct: esc.costosPct || 0, sinCliente: esc.sinCliente || undefined,
+      })
+      if (!prep) return reply.code(404).send({ error: 'La versión no existe' })
+      const flujo = armarFlujoSemanal(prep.semanal(semanas))
+      periodos = flujo.periodos
+      resultados.push({
+        nombre: esc.nombre?.trim() || `Escenario ${i + 1}`,
+        tc: prep.c.entrada.tc,
+        resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo),
+        saldos: flujo.saldoFinal,
+        // Margen de los primeros 12 meses del presupuesto, con los supuestos del escenario.
+        margen12m: prep.ppto.margen.slice(0, 12).reduce((s, x) => s + x, 0),
+      })
+    }
+    return { periodos, escenarios: resultados }
+  })
+}
+
+// ───────────── Preparación del flujo (compartida por el mensual, el semanal y los escenarios) ─────────────
+
+interface OpFlujo extends Opciones {
+  /** Días que se atrasan todos los cobros (reales y proyectados). */
+  atrasoCobros?: number
+  /** Aumento porcentual de todos los costos de operación. */
+  costosPct?: number
+}
+
+/** Aplica un aumento porcentual a los egresos y recalcula totales y margen. */
+function escalarCostos(ppto: ResultadoPpto, pct: number): ResultadoPpto {
+  const egresos = ppto.egresos.map((l) => ({ ...l, valores: l.valores.map((v) => v * (1 + pct / 100)) }))
+  const totalEgresos = ppto.meses.map((_, i) => egresos.filter((l) => !l.fueraDeTotal).reduce((s, l) => s + l.valores[i], 0))
+  const margen = ppto.meses.map((_, i) => ppto.totalVentas[i] + totalEgresos[i])
+  let acum = 0
+  return { ...ppto, egresos, totalEgresos, margen, margenAcum: margen.map((m) => (acum += m)) }
+}
+
+async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
+  const c = await cargarEntrada(versionId, { tc: op.tc, sinCliente: op.sinCliente })
+  if (!c) return null
+  const { entrada, par } = c
+  let ppto = calcularPresupuesto(entrada, 'corregido')
+  if (op.costosPct) ppto = escalarCostos(ppto, op.costosPct)
+  const advertencias = [...ppto.advertencias]
+  const atraso = op.atrasoCobros ?? 0
+
+  // Cobros reales: hitos pendientes de embarques reales, con sus días de atraso.
+  const embarques = await prisma.embarque.findMany({ where: { versionId: null, estado: { not: 'COBRADO' } }, include: { hitos: true, cliente: true } })
+  const cobros: CobroFlujo[] = []
+  const cubiertos = new Set<string>()
+  for (const e of embarques) {
+    const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO' && h.fechaEsperada)
+    const ref = e.fETDReal ?? e.fETDEst ?? pendientes[0]?.fechaEsperada
+    if (ref) cubiertos.add(`${e.clienteId}|${iso(ref).slice(0, 7)}`)
+    for (const h of pendientes) {
+      cobros.push({ clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(iso(h.fechaEsperada!), h.diasAtraso + atraso), usdCent: h.montoUsdCent, origen: 'REAL' })
+    }
+  }
+
+  const proy = cobrosProyectados(
+    c.clientes, ppto.meses,
+    Object.fromEntries(ppto.contenedores.map((x) => [x.clienteId, x.valores])),
+    cubiertos,
+    { diaETD: par.numero('diaETD', 15), diasOCAntesETD: par.numero('diasOCAntesETD', 30), diasProduccionAntesETD: par.numero('diasProduccionAntesETD', 7) },
+  )
+  advertencias.push(...proy.advertencias)
+  cobros.push(...proy.cobros.map((x) => ({ ...x, fecha: sumarDias(x.fecha, atraso) })))
+
+  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
+  const partidas = (await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto }))
+
+  const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null } }, include: { gastos: true } })
+  const deudas = deudasDb
+    .filter((d) => d.gastos.length === 0)
+    .map((d) => ({ acreedor: d.acreedor, cuota: d.cuota!, desde: d.inicio ? iso(d.inicio).slice(0, 7) : null, hasta: d.fin ? iso(d.fin).slice(0, 7) : null }))
+  for (const d of deudas) if (!d.hasta) advertencias.push(`Cuota ${d.acreedor}: sin fecha de término; se proyecta ${par.numero('mesesCuotaSinFin', 12)} meses.`)
+
+  // Todo lo que el flujo mensual y el semanal comparten.
+  const base = {
+    ppto, tc: entrada.tc,
+    saldoInicial: cuentas.reduce((s, x) => s + x.saldoInicial, 0),
+    cobros, partidas, deudas,
+    sueldosLiquidos: (await prisma.empleado.findMany({ where: { activo: true } })).reduce((s, e) => s + (e.liquido ?? 0), 0),
+    previredMensual: par.numero('previredMensual', 0),
+    ivaPct: par.numero('ivaPct', 19),
+    devolucionIVAModo: (par.texto('devolucionIVAModo', 'fijo') === 'calculado' ? 'calculado' : 'fijo') as 'fijo' | 'calculado',
+    devolucionIVAMensual: par.numero('devolucionIVAMensual', 0),
+    rezagoIVAMeses: par.numero('rezagoIVAMeses', 1),
+    mesesSinFin: par.numero('mesesCuotaSinFin', 12),
+    saldoMinimo: par.numero('saldoMinimoCaja', 0),
+  }
+
+  const params = {
+    diaPagoFijos: par.numero('diaPagoFijos', PARAMS_SEMANAL_POR_DEFECTO.diaPagoFijos),
+    diaPagoPrevired: par.numero('diaPagoPrevired', PARAMS_SEMANAL_POR_DEFECTO.diaPagoPrevired),
+    diaPagoCuotas: par.numero('diaPagoCuotas', PARAMS_SEMANAL_POR_DEFECTO.diaPagoCuotas),
+    diaDevolucionIVA: par.numero('diaDevolucionIVA', PARAMS_SEMANAL_POR_DEFECTO.diaDevolucionIVA),
+    diaETD: par.numero('diaETD', PARAMS_SEMANAL_POR_DEFECTO.diaETD),
+    diasProduccionAntesETD: par.numero('diasProduccionAntesETD', PARAMS_SEMANAL_POR_DEFECTO.diasProduccionAntesETD),
+  }
+  const semanal = (nSemanas: number) => ({ ...base, inicio: `${ppto.meses[0]}-01`, nSemanas, params })
+
+  return { c, par, ppto, advertencias, base, semanal }
 }
