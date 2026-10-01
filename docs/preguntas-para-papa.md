@@ -51,7 +51,7 @@ Las preguntas con ★ son las que más cambian los números.
 
 ## E. Gastos fijos
 
-32. ★ **IFS Food** ($4.000.000 al año): ¿en qué mes es la auditoría? Hoy no se carga en ningún mes. **Kosher** ($1.000.000): ¿se paga cada octubre?
+32. ★ **IFS Food** ($4.000.000 al año): ¿en qué mes es la auditoría? Hoy no se carga en ningún mes. **Kosher** ($1.000.000): ¿se paga cada octubre? *(Por ahora la aplicación supone agosto de cada año.)*
 33. ★ **Inversiones en equipos** ($1.000.000 al mes) y **pintura y techos** ($500.000 al mes): ¿se mantienen hasta 2030 o tienen un monto total o fecha de término? En el presupuesto no se sumaban al total.
 34. **Arriendo de la bodega:** 55 UF + $400.000 en el presupuesto ($2.657.750) y $2.600.000 en el flujo. ¿Lleva IVA? ¿Se paga a principio o fin de mes? ¿Cuál es el valor de UF correcto?
 35. **Contabilidad** (6 UF): el presupuesto da $246.300 (UF 41.050) y el flujo $243.000 (UF 40.500). ¿Con cuál nos quedamos? *(VSS factura 5 UF netas; con IVA son ≈ 6 UF. El presupuesto está con IVA incluido.)*

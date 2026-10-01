@@ -75,3 +75,13 @@ export async function aplicarValoresDeFacturas(prisma: PrismaClient) {
     data: { clave: 'correccionesFacturasSep2026', valor: '1', descripcion: 'Marca interna: valores del presupuesto corregidos con las facturas ya aplicados' },
   })
 }
+
+/** IFS Food: la auditoría se supone en agosto de cada año, hasta que se confirme el mes real. */
+export async function fijarIFSEnAgosto(prisma: PrismaClient) {
+  if (await prisma.parametro.findUnique({ where: { clave: 'ifsAgostoCargado' } })) return
+  await prisma.gastoDriver.updateMany({
+    where: { nombre: 'IFS Food', mesEspecifico: null },
+    data: { mesEspecifico: 8, nota: 'Mes supuesto (agosto) hasta confirmar la fecha real de la auditoría.' },
+  })
+  await prisma.parametro.create({ data: { clave: 'ifsAgostoCargado', valor: '1', descripcion: 'Marca interna: IFS Food en agosto ya aplicado' } })
+}
