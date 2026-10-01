@@ -53,7 +53,7 @@ function construirFilas(r: ResultadoPpto): Fila[] {
   f.push({ id: 'margen', concepto: 'MARGEN NETO', tipo: 'total', resumen: 'suma', decimales: 0, valores: r.margen, formula: 'Total ventas − total egresos.' })
   f.push({ id: 'margen-acum', concepto: 'Margen acumulado', tipo: 'dato', resumen: 'ultimo', decimales: 0, valores: r.margenAcum })
   titulo('t-prod', 'PRODUCCIÓN Y MATERIA PRIMA')
-  f.push({ id: 'camiones', concepto: 'Camiones MP (28 t)', tipo: 'camiones', resumen: 'suma', decimales: 0, valores: r.camiones, formula: 'Camiones de materia prima que se compran cada mes. Es un dato: edítalo en la celda.' })
+  f.push({ id: 'camiones', concepto: 'Camiones MP (28 t)', tipo: 'camiones', resumen: 'suma', editarEn: 'mp', decimales: 0, valores: r.camiones, formula: 'Camiones de materia prima que se compran cada mes. Suma de los camiones de cada origen (Albemarle y SQM). Se editan por origen en Materia prima.' })
   f.push({ id: 'cont-prod', concepto: 'Contenedores producidos', tipo: 'dato', resumen: 'suma', decimales: 0, valores: r.contProducidos })
   f.push({ id: 'consumo', concepto: 'Consumo de MP (t)', tipo: 'dato', resumen: 'suma', decimales: 1, valores: r.consumoMPTon, formula: 'Kg vendidos ÷ (1 − merma) ÷ 1.000. La merma está en Indicadores y parámetros (mermaDefectoPct) y se puede registrar real por camión.', editarEn: 'indicadores' })
   f.push({ id: 'stock', concepto: 'Stock final MP (t)', tipo: 'dato', resumen: 'ultimo', decimales: 1, valores: r.stockMPTon, formula: 'Stock del mes anterior + camiones × 28 t − consumo de MP del mes.', editarEn: 'mp' })
@@ -117,8 +117,8 @@ export default function Presupuesto({ irA }: { irA: (pagina: string) => void }) 
             field: campo(m),
             headerName: nombreMes(m),
             width: 104,
-            editable: (p) => p.data.tipo === 'cont' || p.data.tipo === 'camiones',
-            cellClassRules: { 'celda-editable': (p) => p.data.tipo === 'cont' || p.data.tipo === 'camiones' },
+            editable: (p) => p.data.tipo === 'cont',
+            cellClassRules: { 'celda-editable': (p) => p.data.tipo === 'cont' },
             valueParser: (p) => {
               const n = parseNumeroCL(p.newValue)
               return n === null || n < 0 || !Number.isInteger(n) ? p.oldValue : n
