@@ -15,6 +15,7 @@ import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarCobrosDeSeptiembre } from './cobrosSeptiembre'
 import { cargarCobrosReales } from './cobrosReales'
 import { cargarDiaArriendo } from './diaArriendo'
+import { cargarBonoDescarga } from './bonoDescarga'
 import { cargarMPDeOctubre } from './mpOctubre'
 import { marcarArriendoPagadoPorMEL } from './arriendoMEL'
 import { cargarDevolucionesDePrestamos } from './prestamos'
@@ -58,6 +59,7 @@ async function main() {
     await cargarCobrosDeSeptiembre(prisma)
     await cargarCobrosReales(prisma)
     await cargarDiaArriendo(prisma)
+    await cargarBonoDescarga(prisma)
     await cargarMPDeOctubre(prisma)
     await ajustarCamionesMinimos(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
@@ -76,7 +78,7 @@ async function main() {
     data: [
       { clave: 'mermaDefectoPct', valor: '5', descripcion: 'Merma de MP por defecto (%), cuando el camión no tiene merma registrada' },
       { clave: 'toneladasPorCamion', valor: '28', descripcion: 'Toneladas de MP por camión' },
-      { clave: 'bonoDescargaPorCamion', valor: '35000', descripcion: 'Bono de descarga líquido por camión (CLP)' },
+      { clave: 'bonoDescargaPorCamion', valor: '70000', descripcion: 'Bono de descarga líquido por camión (CLP): $35.000 por persona × 2 personas que descargan' },
       { clave: 'ivaPct', valor: '19', descripcion: 'Tasa de IVA (%)' },
       { clave: 'devolucionIVAMensual', valor: '1500000', descripcion: 'Devolución de IVA exportador aproximada (CLP/mes), mientras no haya IVA crédito real' },
       { clave: 'tasaImpuestoRentaPct', valor: '25', descripcion: 'Provisión de impuesto a la renta, régimen Pyme (%). Verificar con contabilidad' },
@@ -403,6 +405,7 @@ async function main() {
   await cargarCobrosDeSeptiembre(prisma)
   await cargarCobrosReales(prisma)
   await cargarDiaArriendo(prisma)
+  await cargarBonoDescarga(prisma)
   await cargarMPDeOctubre(prisma)
   await ajustarCamionesMinimos(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
