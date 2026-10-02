@@ -145,7 +145,7 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
       {saldos.length > 0 && (
         <div className="mb-4 rounded border border-slate-200 bg-white">
           <p className="border-b border-slate-200 px-3 py-2 font-semibold">Saldo por proveedor</p>
-          <table className="w-full text-sm">
+          <table className="block overflow-x-auto w-full text-sm">
             <thead><tr className="text-left text-xs text-slate-500"><th className="px-3 py-1">Proveedor</th><th className="px-3 py-1 text-right">Facturas</th><th className="px-3 py-1 text-right">Saldo</th><th className="px-3 py-1">Más antigua</th></tr></thead>
             <tbody>
               {saldos.map((s) => (

@@ -20,7 +20,7 @@ export default function Login({ alEntrar }: { alEntrar: () => void }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <form onSubmit={entrar} className="w-80 space-y-3 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={entrar} className="w-full max-w-xs space-y-3 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-lg font-semibold">Atacama Sea Salt</h1>
         <p className="text-sm text-slate-500">Gestión financiera</p>
         <label className="block text-sm">

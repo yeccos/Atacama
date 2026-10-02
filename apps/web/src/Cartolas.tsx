@@ -199,7 +199,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
       {leidas && (
         <div className="mb-4 rounded border border-sky-200 bg-sky-50 p-3 text-sm">
           <p className="mb-2 font-semibold">Listo para importar: {leidas.length} archivos, {total} movimientos</p>
-          <table className="mb-2 w-full max-w-3xl">
+          <table className="block overflow-x-auto mb-2 w-full max-w-3xl">
             <thead><tr className="text-left text-xs text-slate-500"><th>Archivo</th><th>Cuenta</th><th>Período</th><th className="text-right">Movimientos</th><th className="text-right">Saldo inicial</th><th className="text-right">Saldo final</th></tr></thead>
             <tbody>
               {leidas.map((c) => (

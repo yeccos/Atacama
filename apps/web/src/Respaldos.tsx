@@ -67,7 +67,7 @@ export default function Respaldos() {
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {mensaje && <p className="mb-3 rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensaje}</p>}
       <div className="max-w-2xl rounded border border-slate-200 bg-white">
-        <table className="w-full text-sm">
+        <table className="block overflow-x-auto w-full text-sm">
           <thead><tr className="border-b border-slate-200 text-left"><th className="px-3 py-2">Respaldo</th><th className="px-3 py-2">Creado</th><th className="px-3 py-2 text-right">Tamaño</th><th className="px-3 py-2"></th></tr></thead>
           <tbody>
             {lista.map((r) => (

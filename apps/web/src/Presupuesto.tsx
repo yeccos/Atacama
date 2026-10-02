@@ -208,7 +208,7 @@ export default function Presupuesto({ irA }: { irA: (pagina: string) => void }) 
           <details className="rounded border border-slate-200 bg-white px-3 py-1.5">
             <summary className="cursor-pointer text-sm font-medium">Economía por contenedor y punto de equilibrio</summary>
             <div className="max-h-64 overflow-auto py-2">
-          <table className="rounded border border-slate-200 bg-white text-sm">
+          <table className="block max-w-full overflow-x-auto rounded border border-slate-200 bg-white text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left">
                 {['Cliente', 'Venta', 'Costo variable', 'Contribución', '%'].map((t, i) => <th key={t} className={`px-3 py-2 font-medium ${i ? 'text-right' : ''}`}>{t}</th>)}

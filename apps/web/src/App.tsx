@@ -62,7 +62,7 @@ function Incoterms() {
         <p className="mb-2 text-sm text-slate-500">
           Esta tabla decide qué costos de exportación se cargan a cada embarque. Un cliente sin incoterm no asume ninguno y genera una advertencia.
         </p>
-        <table className="rounded border border-slate-200 bg-white text-sm">
+        <table className="block max-w-full overflow-x-auto rounded border border-slate-200 bg-white text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left">
               <th className="px-3 py-2">Incoterm</th>
@@ -158,7 +158,7 @@ function Auditoria() {
   return (
     <>
       <h2 className="mb-2 text-base font-semibold">Auditoría (últimos 500 cambios)</h2>
-      <table className="w-full rounded border border-slate-200 bg-white text-sm">
+      <div className="overflow-x-auto"><table className="w-full min-w-max rounded border border-slate-200 bg-white text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left">
             {['Fecha', 'Usuario', 'Acción', 'Entidad', 'ID', 'Detalle'].map((t) => <th key={t} className="px-3 py-2">{t}</th>)}
@@ -178,7 +178,7 @@ function Auditoria() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </>
   )
 }
@@ -196,6 +196,7 @@ const ESPECIALES = [
 export default function App() {
   const [conSesion, setConSesion] = useState(!!sesion.token)
   const [actual, setActual] = useState('inicio')
+  const [menuAbierto, setMenuAbierto] = useState(false)
 
   useEffect(() => {
     const cerrar = () => setConSesion(false)
@@ -217,7 +218,12 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="w-56 shrink-0 border-r border-slate-200 bg-white p-4">
+      <div className="fixed inset-x-0 top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-2 md:hidden">
+        <button className="btn" aria-label="Abrir menú" onClick={() => setMenuAbierto(true)}>☰</button>
+        <p className="truncate font-semibold">{menu.find((x) => x.id === actual)?.menu ?? 'Atacama Sea Salt'}</p>
+      </div>
+      {menuAbierto && <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={() => setMenuAbierto(false)} />}
+      <nav className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-4 transition-transform md:sticky md:top-0 md:h-screen md:w-56 md:translate-x-0 ${menuAbierto ? 'translate-x-0' : '-translate-x-full'}`}>
         <p className="mb-4 font-semibold">Atacama Sea Salt</p>
         {grupos.map((g) => (
           <div key={g} className="mb-3">
@@ -225,7 +231,7 @@ export default function App() {
             {menu.filter((m) => m.grupo === g).map((m) => (
               <button
                 key={m.id}
-                onClick={() => setActual(m.id)}
+                onClick={() => { setActual(m.id); setMenuAbierto(false) }}
                 className={`block w-full rounded px-2 py-1 text-left text-sm ${actual === m.id ? 'bg-sky-100 font-medium text-sky-900' : 'hover:bg-slate-100'}`}
               >
                 {m.menu}
@@ -235,7 +241,7 @@ export default function App() {
         ))}
         <button className="btn mt-4 w-full" onClick={salir}>Cerrar sesión</button>
       </nav>
-      <main className="min-w-0 flex-1 p-4">
+      <main className="min-w-0 flex-1 p-3 pt-14 md:p-4 md:pt-4">
         {actual === 'inicio' && <Inicio />}
         {actual === 'presupuesto' && <Presupuesto irA={setActual} />}
         {actual === 'flujo' && <FlujoPagina />}
