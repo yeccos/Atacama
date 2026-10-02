@@ -39,3 +39,5 @@ const puerto = Number(process.env.API_PORT ?? (produccion ? process.env.PORT : u
 app.listen({ port: puerto, host: produccion ? '0.0.0.0' : '127.0.0.1' }).then(() => {
   console.log(`API Atacama escuchando en el puerto ${puerto}`)
 })
+
+// Railway solo redespliega si cambian archivos de apps/api: los cambios solo de la web necesitan tocar un archivo de la API.
