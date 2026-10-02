@@ -20,7 +20,7 @@ interface Respuesta {
   tonPorCamion: number
   mermaPct: number
   stockMinimoT: number
-  planes: PlanMPOrigen[]
+  planes: (PlanMPOrigen & { previo: { mes: string; camiones: number; compradasT: number; stockInicioT: number; stockFinalT: number; valorStockFinalCLP: number } })[]
 }
 
 const t = (x: number) => (Math.abs(x) < 0.0005 ? '0' : formatoNumero(x, 1))
@@ -173,16 +173,19 @@ export default function PlanMP() {
                 <thead>
                   <tr className="border-b border-slate-200 text-left">
                     <th className="sticky left-0 z-10 bg-white px-3 py-2">Toneladas</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-500" title="Ya ocurrió: camiones comprados y pagados">{nombreMes(p.previo.mes)} (real)</th>
                     {p.meses.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Stock al comenzar el mes</td>
+                    <td className="bg-slate-50 px-3 py-1.5 text-right text-slate-600">{t(p.previo.stockInicioT)}</td>
                     {p.stockInicioMesT.map((x, i) => <td key={i} className="px-3 py-1.5 text-right">{t(x)}</td>)}
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Camiones comprados <span className="text-xs text-slate-400">(editable)</span></td>
+                    <td className="bg-slate-50 px-3 py-1.5 text-right font-medium text-slate-700">{p.previo.camiones}</td>
                     {p.camiones.map((k, i) => (
                       <td key={i} className="px-1 py-1 text-right">
                         <input
@@ -197,30 +200,36 @@ export default function PlanMP() {
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Toneladas compradas</td>
+                    <td className="bg-slate-50 px-3 py-1.5 text-right text-slate-600">{t(p.previo.compradasT)}</td>
                     {p.compradasT.map((x, i) => <td key={i} className="px-3 py-1.5 text-right">{t(x)}</td>)}
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Consumo (kg vendidos ÷ (1 − merma))</td>
+                    <td className="bg-slate-50 px-3 py-1.5 text-right text-xs text-slate-400" title="El consumo de septiembre no se lleva en el plan">n/d</td>
                     {p.consumoT.map((x, i) => <td key={i} className="px-3 py-1.5 text-right">{x ? t(x) : ''}</td>)}
                   </tr>
                   <tr className="border-b border-slate-100 bg-sky-50 font-semibold">
                     <td className="sticky left-0 z-10 bg-sky-50 px-3 py-1.5 whitespace-nowrap">Stock al cierre (excedente)</td>
+                    <td className="bg-slate-100 px-3 py-1.5 text-right">{t(p.previo.stockFinalT)}</td>
                     {p.stockFinalT.map((x, i) => (
                       <td key={i} className={`px-3 py-1.5 text-right ${x < -0.0005 ? 'text-red-700' : x > datos.tonPorCamion ? 'text-amber-700' : ''}`}>{t(x)}</td>
                     ))}
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Valor del excedente</td>
+                    <td className="bg-slate-50 px-3 py-1.5 text-right text-slate-500">{p.previo.valorStockFinalCLP ? mm(p.previo.valorStockFinalCLP) : ''}</td>
                     {p.valorStockFinalCLP.map((x, i) => <td key={i} className="px-3 py-1.5 text-right text-slate-500">{x ? mm(x) : ''}</td>)}
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">¿Se vende sin comprar?</td>
+                    <td className="bg-slate-50"></td>
                     {p.ventaSinComprar.map((x, i) => (
                       <td key={i} className={`px-3 py-1.5 text-right ${x ? 'font-semibold text-emerald-700' : 'text-slate-300'}`}>{p.consumoT[i] > 0 ? (x ? 'Sí' : 'No') : ''}</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Camiones sugeridos (mínimo)</td>
+                    <td className="bg-slate-50"></td>
                     {p.camionesSugeridos.map((k, i) => (
                       <td key={i} className={`px-3 py-1.5 text-right ${k !== p.camiones[i] ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>{k || ''}</td>
                     ))}

@@ -232,11 +232,22 @@ export function registrarPresupuesto(app: FastifyInstance) {
     for (const l of await prisma.camionMP.findMany({ include: { consumos: true } })) {
       stock[l.origenId] = (stock[l.origenId] ?? 0) + num(l.toneladasRecibidas) - l.consumos.reduce((s, x) => s + num(x.toneladasMP), 0)
     }
+    // El mes anterior al plan (septiembre): lo comprado según los camiones registrados; el consumo de ese mes no se lleva.
+    const mesPrevio = (() => {
+      const [a, mm] = entrada.meses[0].split('-').map(Number)
+      return mm === 1 ? `${a - 1}-12` : `${a}-${String(mm - 1).padStart(2, '0')}`
+    })()
+    const camionesPrevio = (await prisma.camionMP.findMany()).filter((l) => iso(l.fecha).slice(0, 7) === mesPrevio && l.guia !== 'Saldo inicial')
     const stockMinimoT = par.numero('stockMinimoMPTon', 0)
     const n = Math.min(Number(q.meses) || 24, entrada.meses.length)
     const recortar = <T>(xs: T[]) => xs.slice(0, n)
     const planes = planificarMP(entrada, porOrigen, stock, stockMinimoT).map((p) => ({
       ...p,
+      previo: (() => {
+        const delOrigen = camionesPrevio.filter((l) => l.origenId === p.origenId)
+        const compradasT = delOrigen.reduce((s, l) => s + num(l.toneladasRecibidas), 0)
+        return { mes: mesPrevio, camiones: delOrigen.length, compradasT, stockInicioT: p.stockInicialT - compradasT, stockFinalT: p.stockInicialT, valorStockFinalCLP: Math.max(0, p.stockInicialT) * p.costoPorTonCLP }
+      })(),
       meses: recortar(p.meses), camiones: recortar(p.camiones), compradasT: recortar(p.compradasT), consumoT: recortar(p.consumoT),
       stockInicioMesT: recortar(p.stockInicioMesT), stockFinalT: recortar(p.stockFinalT), ventaSinComprar: recortar(p.ventaSinComprar),
       camionesSugeridos: recortar(p.camionesSugeridos), valorStockFinalCLP: recortar(p.valorStockFinalCLP),
