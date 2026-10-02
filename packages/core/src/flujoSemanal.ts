@@ -1,15 +1,18 @@
 // Flujo de caja semanal. El presupuesto da montos por mes; aquí cada monto se lleva a la fecha en que
 // se paga o se cobra (sueldos a fin de mes, Previred el 10, costos de un embarque en su ETD...) y
 // luego se reparte en semanas de 7 días desde la fecha de inicio.
+import { impuestosF29 } from './f29'
 import { devolucionesIVA } from './iva'
 import { claveCobro, nombreCobro, sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
-import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES } from './presupuesto'
+import { GRUPO_DEUDAS, GRUPO_IMPUESTOS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES } from './presupuesto'
 
 export interface ParamsSemanal {
   /** Día del mes en que se pagan los gastos fijos. */
   diaPagoFijos: number
   diaPagoPrevired: number
   diaPagoCuotas: number
+  /** Día del mes en que se paga el F29 (PPM y retención de trabajadores). */
+  diaPagoF29: number
   diaDevolucionIVA: number
   /** Día del mes del embarque proyectado (ETD); los costos por contenedor se pagan ese día. */
   diaETD: number
@@ -21,6 +24,7 @@ export const PARAMS_SEMANAL_POR_DEFECTO: ParamsSemanal = {
   diaPagoFijos: 10,
   diaPagoPrevired: 10,
   diaPagoCuotas: 10,
+  diaPagoF29: 15,
   diaDevolucionIVA: 25,
   diaETD: 15,
   diasProduccionAntesETD: 7,
@@ -104,6 +108,12 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
     egreso(fechaDia(ym, p.diaPagoPrevired), 'previred', 'Imposiciones (Previred)', e.previredMensual, GRUPO_REMUNERACIONES)
     if (bono) egreso(finDeMes(ym), bono.clave, bono.nombre, -bono.valores[i], GRUPO_REMUNERACIONES)
   })
+
+  // ── Impuestos del F29 ──
+  if ((e.ppmPct ?? 0) > 0 || (e.retencionImpuestoUnico ?? 0) > 0) {
+    const f29 = impuestosF29(e.ppto, e.ppmPct ?? 0, e.retencionImpuestoUnico ?? 0, e.ppmVentasMesPrevio)
+    meses.forEach((ym, i) => egreso(fechaDia(ym, p.diaPagoF29), 'f29', 'Impuestos F29 (PPM y retención de trabajadores)', f29[i], GRUPO_IMPUESTOS))
+  }
 
   // ── Deudas con cuota propia ──
   for (const d of e.deudas) {

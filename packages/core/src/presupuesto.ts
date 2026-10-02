@@ -107,6 +107,7 @@ export const GRUPO_VARIABLES = 'Costos variables de planta'
 export const GRUPO_FIJOS = 'Gastos fijos y administración'
 export const GRUPO_REMUNERACIONES = 'Remuneraciones y Previred'
 export const GRUPO_DEUDAS = 'Deudas y créditos'
+export const GRUPO_IMPUESTOS = 'Impuestos mensuales (F29)'
 export const GRUPO_OTROS = 'Otros'
 export const GRUPO_OTROS_INGRESOS = 'Otros ingresos'
 

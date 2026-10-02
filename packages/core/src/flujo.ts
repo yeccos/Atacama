@@ -1,8 +1,9 @@
 // Flujo de caja proyectado: cobros por hitos, costos del presupuesto con IVA, remuneraciones,
 // deudas y partidas manuales. Los montos del flujo van con IVA (el presupuesto va en neto).
 import { totalPedidoUsdCent, type Escala } from './comercial'
+import { impuestosF29 } from './f29'
 import { devolucionesIVA, ivaCreditoPorMes, type PeriodoIVAIn } from './iva'
-import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
+import { GRUPO_DEUDAS, GRUPO_IMPUESTOS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
 
 // ───────────── Fechas de un embarque y de sus hitos de cobro ─────────────
 
@@ -174,6 +175,11 @@ export interface EntradaFlujo {
   devolucionIVAPct?: number
   /** Ajustes por mes de compra: crédito real, devolución esperada y su fecha. */
   periodosIVA?: PeriodoIVAIn[]
+  /** Tasa de PPM (% de las ventas) y retención mensual de impuesto único de trabajadores, que se pagan con el F29. */
+  ppmPct?: number
+  retencionImpuestoUnico?: number
+  /** Exportaciones del mes anterior al presupuesto, para el PPM del primer mes. */
+  ppmVentasMesPrevio?: number
   /** Meses que se proyecta una deuda sin fecha de término. */
   mesesSinFin: number
   saldoMinimo: number
@@ -264,6 +270,12 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   const bono = e.ppto.egresos.find((l) => l.clave === 'bono-descarga')
   if (bono) {
     egresos.push({ clave: bono.clave, nombre: bono.nombre, grupo: GRUPO_REMUNERACIONES, valores: e.meses.map((m) => (pp(m) < 0 || bono.valores[pp(m)] === 0 ? 0 : -bono.valores[pp(m)])) })
+  }
+
+  // ── Impuestos del F29 (PPM y retención de trabajadores), pagados el mes siguiente ──
+  if ((e.ppmPct ?? 0) > 0 || (e.retencionImpuestoUnico ?? 0) > 0) {
+    const f29 = impuestosF29(e.ppto, e.ppmPct ?? 0, e.retencionImpuestoUnico ?? 0, e.ppmVentasMesPrevio)
+    egresos.push({ clave: 'f29', nombre: 'Impuestos F29 (PPM y retención de trabajadores)', grupo: GRUPO_IMPUESTOS, valores: e.meses.map((m) => (pp(m) >= 0 ? f29[pp(m)] : 0)) })
   }
 
   // ── Deudas con cuota propia ──

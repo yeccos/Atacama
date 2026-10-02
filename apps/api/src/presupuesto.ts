@@ -458,6 +458,9 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     devolucionIVAModo: (par.texto('devolucionIVAModo', 'fijo') === 'calculado' ? 'calculado' : 'fijo') as 'fijo' | 'calculado',
     devolucionIVAMensual: par.numero('devolucionIVAMensual', 0),
     devolucionIVAPct: par.numero('devolucionIVAPct', 100),
+    ppmPct: par.numero('ppmPct', 0),
+    retencionImpuestoUnico: par.numero('retencionImpuestoUnico', 0),
+    ppmVentasMesPrevio: par.numero('ppmVentasMesPrevio', 0) || undefined,
     periodosIVA: (await prisma.periodoIVA.findMany()).map((x) => ({
       mes: iso(x.mes).slice(0, 7), ivaCredito: x.ivaCredito || null, devolucionEsperada: x.devolucionEsperada || null,
       fechaDevolucion: x.fechaDevolucionEst ? iso(x.fechaDevolucionEst) : null,
@@ -474,6 +477,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     diaPagoFijos: par.numero('diaPagoFijos', PARAMS_SEMANAL_POR_DEFECTO.diaPagoFijos),
     diaPagoPrevired: par.numero('diaPagoPrevired', PARAMS_SEMANAL_POR_DEFECTO.diaPagoPrevired),
     diaPagoCuotas: par.numero('diaPagoCuotas', PARAMS_SEMANAL_POR_DEFECTO.diaPagoCuotas),
+    diaPagoF29: par.numero('diaPagoF29', PARAMS_SEMANAL_POR_DEFECTO.diaPagoF29),
     diaDevolucionIVA: par.numero('diaDevolucionIVA', PARAMS_SEMANAL_POR_DEFECTO.diaDevolucionIVA),
     diaETD: par.numero('diaETD', PARAMS_SEMANAL_POR_DEFECTO.diaETD),
     diasProduccionAntesETD: par.numero('diasProduccionAntesETD', PARAMS_SEMANAL_POR_DEFECTO.diasProduccionAntesETD),

@@ -18,6 +18,7 @@ const ORDEN = [
   'Costos variables de planta',
   'Gastos fijos y administración',
   'Remuneraciones y Previred',
+  'Impuestos mensuales (F29)',
   'Deudas y créditos',
   'Otros',
 ]

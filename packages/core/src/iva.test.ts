@@ -37,3 +37,14 @@ describe('IVA exportador', () => {
     expect(devolucionesIVA({ ...base, modo: 'fijo' }).map((d) => d.monto)).toEqual([1500000, 1500000, 1500000])
   })
 })
+
+import { impuestosF29 } from './index'
+
+describe('impuestos del F29', () => {
+  it('PPM de las ventas del mes anterior más la retención de trabajadores', () => {
+    const p = ppto()
+    p.totalVentas = [10000000, 20000000, 30000000]
+    // El primer mes usa sus propias ventas como aproximación de las de septiembre.
+    expect(impuestosF29(p, 1, 357819)).toEqual([457819, 457819, 557819])
+  })
+})

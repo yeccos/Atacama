@@ -15,6 +15,7 @@ import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarCobrosDeSeptiembre } from './cobrosSeptiembre'
 import { cargarCobrosReales } from './cobrosReales'
 import { cargarDiaArriendo } from './diaArriendo'
+import { cargarParametrosF29 } from './f29'
 import { cargarDiaIVA25 } from './diaIVA25'
 import { cargarIVACalculado } from './ivaCalculado'
 import { cargarSaldoCajaOctubre } from './saldoCajaOctubre'
@@ -64,6 +65,7 @@ async function main() {
     await cargarCobrosDeSeptiembre(prisma)
     await cargarCobrosReales(prisma)
     await cargarDiaArriendo(prisma)
+    await cargarParametrosF29(prisma)
     await cargarDiaIVA25(prisma)
     await cargarIVACalculado(prisma)
     await cargarSaldoCajaOctubre(prisma)
@@ -415,6 +417,7 @@ async function main() {
   await cargarCobrosDeSeptiembre(prisma)
   await cargarCobrosReales(prisma)
   await cargarDiaArriendo(prisma)
+  await cargarParametrosF29(prisma)
   await cargarDiaIVA25(prisma)
   await cargarIVACalculado(prisma)
   await cargarSaldoCajaOctubre(prisma)
