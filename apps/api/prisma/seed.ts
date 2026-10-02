@@ -24,6 +24,7 @@ import { cargarLineasFacturas } from './lineasFacturas'
 import { retirarGuiasDespacho } from './sinGuias'
 import { cargarCreditosBancoestado } from './creditosBancoestado'
 import { cargarCreditosSeparados } from './creditosSeparados'
+import { cargarFacturasSII, retirarDuplicadoTPS } from './facturasSII'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -79,6 +80,8 @@ async function main() {
     await retirarGuiasDespacho(prisma)
     await cargarCreditosBancoestado(prisma)
     await cargarCreditosSeparados(prisma)
+    await cargarFacturasSII(prisma)
+    await retirarDuplicadoTPS(prisma)
     await cargarMPDeSeptiembre(prisma)
     await quitarCuotasRossiServitral(prisma)
     await cargarBonoDescarga(prisma)
@@ -436,6 +439,8 @@ async function main() {
   await retirarGuiasDespacho(prisma)
   await cargarCreditosBancoestado(prisma)
   await cargarCreditosSeparados(prisma)
+  await cargarFacturasSII(prisma)
+  await retirarDuplicadoTPS(prisma)
   await cargarMPDeSeptiembre(prisma)
   await quitarCuotasRossiServitral(prisma)
   await cargarBonoDescarga(prisma)

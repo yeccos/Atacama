@@ -196,10 +196,10 @@ export function registrarDocumentos(app: FastifyInstance) {
       const candidatos = movs.filter((m) => Math.abs(m.cargo - d.total) <= 2 && !usados.has(m.id) && m.fecha.getTime() >= d.emision.getTime() - 10 * 86400000)
       const delProveedor = candidatos.filter((m) => m.proveedorId === d.proveedorId || mismoNombre(d.proveedor.nombre, m.contraparte))
       let m: (typeof movs)[number] | undefined = delProveedor[0] ?? (candidatos.length === 1 && !candidatos[0].proveedorId ? candidatos[0] : undefined)
-      // Materia prima: el pago puede diferir un poco de la factura (anticipos, ajustes); se acepta hasta 1,5% con el mismo proveedor, cerca de la fecha.
+      // Materia prima: el pago puede diferir un poco de la factura (anticipos, ajustes); se acepta hasta 1,5% con el mismo proveedor, a menos de 30 días de la factura.
       let aproximado = false
       if (!m && d.proveedor.tipo === 'MP') {
-        m = movs.find((x) => !usados.has(x.id) && x.proveedorId === d.proveedorId && Math.abs(x.cargo - d.total) / d.total <= 0.015 && Math.abs(Date.parse(iso(x.fecha)) - Date.parse(iso(d.emision))) <= 15 * 86400000)
+        m = movs.find((x) => !usados.has(x.id) && x.proveedorId === d.proveedorId && Math.abs(x.cargo - d.total) / d.total <= 0.015 && Math.abs(Date.parse(iso(x.fecha)) - Date.parse(iso(d.emision))) <= 30 * 86400000)
         aproximado = !!m
       }
       if (!m) continue
