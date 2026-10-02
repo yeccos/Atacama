@@ -182,11 +182,15 @@ export default function PlanMP() {
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-max text-sm">
+              <table className="text-sm" style={{ tableLayout: 'fixed', width: 300 + (p.meses.length + 1) * 96 }}>
+                <colgroup>
+                  <col style={{ width: 300 }} />
+                  {Array.from({ length: p.meses.length + 1 }, (_, i) => <col key={i} style={{ width: 96 }} />)}
+                </colgroup>
                 <thead>
                   <tr className="border-b border-slate-200 text-left">
                     <th className="sticky left-0 z-10 bg-white px-3 py-2">Toneladas</th>
-                    <th className="px-3 py-2 text-right font-medium text-slate-500" title="Ya ocurrió: camiones comprados y pagados">{nombreMes(p.previo.mes)} (real, editable)</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-500" title="Ya ocurrió: camiones comprados y pagados">{nombreMes(p.previo.mes)} (real)</th>
                     {p.meses.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
                   </tr>
                 </thead>
