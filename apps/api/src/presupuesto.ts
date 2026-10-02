@@ -404,7 +404,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
   // Lo que se debe a proveedores y el presupuesto no proyecta (el resto ya está en sus líneas: sumarlo duplicaría); sale el día de su vencimiento, o hoy si ya venció.
   const hoy = new Date().toISOString().slice(0, 10)
-  const facturasPendientes = (await documentosConSaldo()).filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && !d.enPresupuesto)
+  const facturasPendientes = (await documentosConSaldo()).filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && !d.enPresupuesto && d.saldo > 0)
   const partidas = [
     ...(await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto })),
     ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `${d.saldo < 0 ? "Nota de crédito" : "Factura"} ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),

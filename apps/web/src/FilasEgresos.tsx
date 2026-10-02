@@ -29,27 +29,36 @@ export default function FilasEgresos({
   facturas,
   columnas,
   columnaDe,
+  ordenGrupos = ORDEN,
+  abiertoInicial = false,
+  ordenLinea,
 }: {
   egresos: LineaFlujo[]
   facturas: FacturaIncluida[]
   columnas: number
   /** Columna de la tabla donde cae una fecha, o -1 si está fuera del período mostrado. */
   columnaDe: (fecha: string) => number
+  /** Orden de los grupos; los que no estén en la lista van al final, por nombre. */
+  ordenGrupos?: string[]
+  abiertoInicial?: boolean
+  ordenLinea?: (a: LineaFlujo, b: LineaFlujo) => number
 }) {
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({})
+  const estaAbierto = (g: string) => abiertos[g] ?? abiertoInicial
   const grupos = new Map<string, LineaFlujo[]>()
   for (const l of egresos) {
     const g = l.grupo ?? 'Otros'
     grupos.set(g, [...(grupos.get(g) ?? []), l])
   }
-  const nombres = [...grupos.keys()].sort((a, b) => (ORDEN.indexOf(a) + 1 || 99) - (ORDEN.indexOf(b) + 1 || 99))
+  const lugar = (g: string) => ordenGrupos.indexOf(g) + 1 || (g.startsWith('Otros') ? 999 : 99)
+  const nombres = [...grupos.keys()].sort((a, b) => lugar(a) - lugar(b) || a.localeCompare(b))
 
   return (
     <>
       {nombres.map((g) => {
-        const lineas = grupos.get(g)!
+        const lineas = [...grupos.get(g)!].sort(ordenLinea ?? (() => 0))
         const total = Array.from({ length: columnas }, (_, i) => lineas.reduce((s, l) => s + (l.valores[i] ?? 0), 0))
-        const abierto = !!abiertos[g]
+        const abierto = estaAbierto(g)
         const delGrupo = facturas.filter((f) => f.grupo === g)
         return (
           <FragmentoGrupo key={g}>
@@ -86,4 +95,15 @@ export default function FilasEgresos({
 
 function FragmentoGrupo({ children }: { children: React.ReactNode }) {
   return <>{children}</>
+}
+
+const HITOS = ['OC', 'PRODUCCION', 'ETD', 'BL', 'ETA', 'FACTURA', 'FECHA_FIJA']
+
+/** Dentro de un cliente, los cobros van en el orden en que ocurren: OC, producción, embarque, BL, llegada. */
+export const ordenHito = (a: LineaFlujo, b: LineaFlujo) => {
+  const pos = (l: LineaFlujo) => {
+    const i = HITOS.findIndex((h) => l.clave.endsWith('-' + h))
+    return i < 0 ? 99 : i
+  }
+  return pos(a) - pos(b) || a.nombre.localeCompare(b.nombre)
 }

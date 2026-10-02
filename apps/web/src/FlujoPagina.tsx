@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
 import { diaMes } from './fechas'
-import FilasEgresos, { type FacturaIncluida } from './FilasEgresos'
+import FilasEgresos, { ordenHito, type FacturaIncluida } from './FilasEgresos'
 import Flujo from './Flujo'
 
 type Vista = 'mensual' | 'semanal' | 'escenarios'
@@ -130,7 +130,15 @@ function Semanal() {
               </thead>
               <tbody>
                 <tr className="bg-slate-100"><td colSpan={f.periodos.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Ingresos</td></tr>
-                {f.ingresos.map((l) => fila(l.clave, l.nombre, l.valores))}
+                <FilasEgresos
+                  egresos={f.ingresos}
+                  facturas={[]}
+                  columnas={f.periodos.length}
+                  columnaDe={() => -1}
+                  ordenGrupos={[]}
+                  abiertoInicial
+                  ordenLinea={ordenHito}
+                />
                 {fila('ti', 'Total ingresos', f.totalIngresos, 'bg-slate-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.periodos.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Egresos</td></tr>
                 <FilasEgresos

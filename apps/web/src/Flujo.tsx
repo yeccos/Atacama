@@ -3,7 +3,7 @@ import { formatoNumero, parseNumeroCL, type ResultadoFlujo } from '@atacama/core
 import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
-import FilasEgresos, { type FacturaIncluida } from './FilasEgresos'
+import FilasEgresos, { ordenHito, type FacturaIncluida } from './FilasEgresos'
 import { nombreMes } from './fechas'
 import Maestro from './Maestro'
 
@@ -122,7 +122,15 @@ export default function Flujo() {
               </thead>
               <tbody>
                 <tr className="bg-slate-100"><td colSpan={f.meses.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Ingresos</td></tr>
-                {f.ingresos.map((l) => fila(l.clave, l.nombre, l.valores))}
+                <FilasEgresos
+                  egresos={f.ingresos}
+                  facturas={[]}
+                  columnas={f.meses.length}
+                  columnaDe={() => -1}
+                  ordenGrupos={[]}
+                  abiertoInicial
+                  ordenLinea={ordenHito}
+                />
                 {fila('ti', 'Total ingresos', f.totalIngresos, 'bg-slate-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.meses.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Egresos</td></tr>
                 <FilasEgresos

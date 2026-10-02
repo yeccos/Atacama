@@ -2,7 +2,7 @@
 // se paga o se cobra (sueldos a fin de mes, Previred el 10, costos de un embarque en su ETD...) y
 // luego se reparte en semanas de 7 días desde la fecha de inicio.
 import { claveCobro, nombreCobro, sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
-import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_REMUNERACIONES } from './presupuesto'
+import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES } from './presupuesto'
 
 export interface ParamsSemanal {
   /** Día del mes en que se pagan los gastos fijos. */
@@ -74,7 +74,7 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   for (const c of e.cobros) {
     eventos.push({
       fecha: c.fecha, grupo: 'INGRESO', clave: claveCobro(c), nombre: nombreCobro(c),
-      monto: (c.usdCent / 100) * e.tc, esCobro: true,
+      monto: (c.usdCent / 100) * e.tc, esCobro: true, grupoEgreso: c.nombre,
     })
   }
 
@@ -117,14 +117,14 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
 
   // ── Partidas manuales ──
   for (const x of e.partidas) {
-    if (x.monto >= 0) eventos.push({ fecha: x.fecha, grupo: 'INGRESO', clave: 'partida-' + x.concepto, nombre: x.concepto, monto: x.monto })
+    if (x.monto >= 0) eventos.push({ fecha: x.fecha, grupo: 'INGRESO', clave: 'partida-' + x.concepto, nombre: x.concepto, monto: x.monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
     else egreso(x.fecha, 'partida-' + x.concepto, x.concepto, -x.monto, GRUPO_OTROS)
   }
 
   // ── Devolución de IVA exportador ──
   meses.forEach((ym, i) => {
     const monto = e.devolucionIVAModo === 'fijo' ? e.devolucionIVAMensual : i - e.rezagoIVAMeses >= 0 ? ivaCredito[i - e.rezagoIVAMeses] : 0
-    if (monto !== 0) eventos.push({ fecha: fechaDia(ym, p.diaDevolucionIVA), grupo: 'INGRESO', clave: 'devolucion-iva', nombre: 'Devolución de IVA', monto })
+    if (monto !== 0) eventos.push({ fecha: fechaDia(ym, p.diaDevolucionIVA), grupo: 'INGRESO', clave: 'devolucion-iva', nombre: 'Devolución de IVA', monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
   })
 
   // ── Períodos: el cierre (todo lo anterior al inicio) y las semanas ──

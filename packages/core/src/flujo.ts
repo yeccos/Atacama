@@ -1,7 +1,7 @@
 // Flujo de caja proyectado: cobros por hitos, costos del presupuesto con IVA, remuneraciones,
 // deudas y partidas manuales. Los montos del flujo van con IVA (el presupuesto va en neto).
 import { totalPedidoUsdCent, type Escala } from './comercial'
-import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
+import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
 
 // ───────────── Fechas de un embarque y de sus hitos de cobro ─────────────
 
@@ -211,7 +211,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     if (i < 0) continue
     const clave = claveCobro(c)
     if (!porCliente.has(clave)) {
-      const l = { clave, nombre: nombreCobro(c), valores: vacia() }
+      const l = { clave, nombre: nombreCobro(c), grupo: c.nombre, valores: vacia() }
       porCliente.set(clave, l)
       ingresos.push(l)
     }
@@ -264,7 +264,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const lista = p.monto >= 0 ? ingresos : egresos
     let l = lista.find((x) => x.clave === 'partida-' + p.concepto)
     if (!l) {
-      l = { clave: 'partida-' + p.concepto, nombre: p.concepto, grupo: GRUPO_OTROS, valores: vacia() }
+      l = { clave: 'partida-' + p.concepto, nombre: p.concepto, grupo: p.monto >= 0 ? GRUPO_OTROS_INGRESOS : GRUPO_OTROS, valores: vacia() }
       lista.push(l)
     }
     l.valores[i] += Math.abs(p.monto)
@@ -276,7 +276,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const origen = i - e.rezagoIVAMeses
     return origen >= 0 ? ivaCredito[origen] : 0
   })
-  if (devolucion.some((v) => v !== 0)) ingresos.push({ clave: 'devolucion-iva', nombre: 'Devolución de IVA', valores: devolucion })
+  if (devolucion.some((v) => v !== 0)) ingresos.push({ clave: 'devolucion-iva', nombre: 'Devolución de IVA', grupo: GRUPO_OTROS_INGRESOS, valores: devolucion })
 
   const totalIngresos = e.meses.map((_, i) => sumar(ingresos.map((l) => l.valores[i])))
   const totalEgresos = e.meses.map((_, i) => sumar(egresos.map((l) => l.valores[i])))

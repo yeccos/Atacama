@@ -106,6 +106,7 @@ export const GRUPO_FIJOS = 'Gastos fijos y administración'
 export const GRUPO_REMUNERACIONES = 'Remuneraciones y Previred'
 export const GRUPO_DEUDAS = 'Deudas y créditos'
 export const GRUPO_OTROS = 'Otros'
+export const GRUPO_OTROS_INGRESOS = 'Otros ingresos'
 
 /** Grupo de un gasto: lo que depende del incoterm es exportación; el resto, variable de planta o fijo. */
 export function grupoGasto(tipoCosto: string | null, driver: string): string {
