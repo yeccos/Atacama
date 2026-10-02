@@ -27,6 +27,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [cuentaId, setCuentaId] = useState<number | null>(null)
   const [resumen, setResumen] = useState<Resumen | null>(null)
+  const [saldos, setSaldos] = useState<Resumen[]>([])
   const [vista, setVista] = useState<Vista>('pagos')
   const [leidas, setLeidas] = useState<CartolaLeida[] | null>(null)
   const [avisos, setAvisos] = useState<string[]>([])
@@ -63,10 +64,11 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
     if (!cuentaId) return
     try {
       setResumen(await api(`/bancos/${cuentaId}/resumen`))
+      setSaldos(await Promise.all(cuentas.map((c) => api<Resumen>(`/bancos/${c.id}/resumen`))))
     } catch (e) {
       setError((e as Error).message)
     }
-  }, [cuentaId])
+  }, [cuentaId, cuentas])
   useEffect(() => {
     cargar()
   }, [cargar])
@@ -189,7 +191,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
         <button className="btn" disabled={ocupado} onClick={reclasificar} title="Vuelve a clasificar lo que no tiene categoría con las reglas de Cuentas bancarias">Reclasificar</button>
       </div>
       <p className="mb-3 text-sm text-slate-500">
-        Sube las cartolas mensuales en PDF y la provisoria en Excel; puedes elegir varias a la vez. Las que ya estaban no se duplican. El saldo de la última cartola es con el que parte el flujo de caja.
+        Sube las cartolas mensuales en PDF y la provisoria en Excel, de cualquiera de las cuentas y todas juntas: cada archivo se asigna solo a su cuenta (CLP o USD) por el número de cuenta que trae. Las que ya estaban no se duplican. El saldo de la última cartola es con el que parte el flujo de caja.
       </p>
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {mensaje && <p className="mb-3 rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensaje}</p>}
@@ -198,11 +200,12 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
         <div className="mb-4 rounded border border-sky-200 bg-sky-50 p-3 text-sm">
           <p className="mb-2 font-semibold">Listo para importar: {leidas.length} archivos, {total} movimientos</p>
           <table className="mb-2 w-full max-w-3xl">
-            <thead><tr className="text-left text-xs text-slate-500"><th>Archivo</th><th>Período</th><th className="text-right">Movimientos</th><th className="text-right">Saldo inicial</th><th className="text-right">Saldo final</th></tr></thead>
+            <thead><tr className="text-left text-xs text-slate-500"><th>Archivo</th><th>Cuenta</th><th>Período</th><th className="text-right">Movimientos</th><th className="text-right">Saldo inicial</th><th className="text-right">Saldo final</th></tr></thead>
             <tbody>
               {leidas.map((c) => (
                 <tr key={c.archivo}>
                   <td className="pr-3">{c.archivo.slice(-34)}</td>
+                  <td className="pr-3">{cuentas.find((x) => mismaCuenta(x.numero, c.cuenta))?.nombre ?? <span className="text-amber-700">sin cuenta registrada</span>}</td>
                   <td className="pr-3">{formatoFecha(c.desde)} a {formatoFecha(c.hasta)}</td>
                   <td className="text-right">{c.movimientos.length}</td>
                   <td className="text-right">{fmt(c.saldoInicial, c.moneda)}</td>
@@ -219,6 +222,18 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
             <button className="btn" disabled={ocupado} onClick={importar}>Importar {total} movimientos</button>
             <button className="btn" disabled={ocupado} onClick={() => setLeidas(null)}>Cancelar</button>
           </div>
+        </div>
+      )}
+
+      {saldos.some((x) => x.nMovimientos > 0) && (
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {saldos.filter((x) => x.nMovimientos > 0).map((x) => (
+            <button key={x.cuenta.id} onClick={() => setCuentaId(x.cuenta.id)} className={`rounded border bg-white p-3 text-left ${x.cuenta.id === cuentaId ? 'border-sky-400' : 'border-slate-200 hover:border-sky-200'}`}>
+              <p className="text-xs text-slate-500">{x.cuenta.nombre}</p>
+              <p className="text-xl font-semibold">{fmt(x.saldoActual, x.cuenta.moneda)}</p>
+              <p className="text-xs text-slate-400">{formatoFecha(x.desde!)} a {formatoFecha(x.hasta!)} · {formatoNumero(x.nMovimientos)} mov.</p>
+            </button>
+          ))}
         </div>
       )}
 
