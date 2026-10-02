@@ -92,13 +92,38 @@ export function registrarDocumentos(app: FastifyInstance) {
     const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 }, cuenta: { moneda: 'CLP' } }, orderBy: { fecha: 'asc' } })
     let verificadas = 0
     let nuevas = 0
+    let porDetalle = 0
     const dudosas: string[] = []
+    // 1) Por el detalle que escribió quien pagó ("Fact 129683"): el número de factura manda aunque el monto no calce
+    //    (un pago puede cubrir varias facturas o una parte).
+    const folioDe = (nota: string | null) => [...(nota ?? '').matchAll(/\b(?:fac|fact|factura|fc)\w*\.?\s*(?:n[°º]?\s*)?(\d{2,9})/gi)].map((x) => x[1])
+    for (const d of docs) {
+      const yaPagado = d.aplicaciones.length > 0 && !d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
+      if (yaPagado) continue
+      const nombre = compacto(d.proveedor.nombre)
+      const m = movs.find(
+        (x) =>
+          !usados.has(x.id) && folioDe(x.nota).includes(d.folio) &&
+          (x.proveedorId === d.proveedorId || (x.contraparte && (compacto(x.contraparte).includes(nombre) || nombre.includes(compacto(x.contraparte).slice(0, 8))))),
+      )
+      if (!m) continue
+      for (const a of d.aplicaciones) await prisma.pago.delete({ where: { id: a.pagoId } })
+      const monto = Math.min(d.total, m.cargo)
+      const pago = await prisma.pago.create({ data: { proveedorId: d.proveedorId, fecha: m.fecha, monto, cuentaBancariaId: m.cuentaId, nota: `Verificado con el detalle de la transferencia: ${m.nota}` } })
+      await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: d.id, monto } })
+      await prisma.conciliacion.create({ data: { movimientoId: m.id, tipoDestino: 'PAGO', destinoId: pago.id, monto } })
+      await prisma.movimientoBanco.update({ where: { id: m.id }, data: { estado: 'CONCILIADO', proveedorId: m.proveedorId ?? d.proveedorId, categoria: m.categoria ?? 'Proveedores' } })
+      usados.add(m.id)
+      porDetalle++
+    }
+
+    // 2) Por monto y proveedor.
     for (const d of docs) {
       const supuesto = d.aplicaciones.length > 0 && d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
       const pagadoReal = d.aplicaciones.length > 0 && !supuesto
       if (pagadoReal) continue
       const nombre = compacto(d.proveedor.nombre)
-      const candidatos = movs.filter((m) => m.cargo === d.total && !usados.has(m.id) && iso(m.fecha) >= iso(d.emision))
+      const candidatos = movs.filter((m) => m.cargo === d.total && !usados.has(m.id) && m.fecha.getTime() >= d.emision.getTime() - 10 * 86400000)
       const delProveedor = candidatos.filter((m) => m.proveedorId === d.proveedorId || (m.contraparte && (compacto(m.contraparte).includes(nombre) || nombre.includes(compacto(m.contraparte)))))
       let m: (typeof movs)[number] | undefined = delProveedor[0] ?? (candidatos.length === 1 && !candidatos[0].proveedorId ? candidatos[0] : undefined)
       // Materia prima: el pago puede diferir un poco de la factura (anticipos, ajustes); se acepta hasta 1,5% con el mismo proveedor, cerca de la fecha.
@@ -121,7 +146,7 @@ export function registrarDocumentos(app: FastifyInstance) {
       if (supuesto) verificadas++
       else nuevas++
     }
-    await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas })
-    return { verificadas, nuevas, dudosas }
+    await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas + porDetalle })
+    return { verificadas, nuevas, porDetalle, dudosas }
   })
 }

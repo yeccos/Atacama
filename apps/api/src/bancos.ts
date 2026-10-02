@@ -1,6 +1,6 @@
 // Cartolas: importar movimientos, clasificarlos y resumirlos. El saldo de la última cartola importada pasa a ser
 // el saldo con que parte el flujo de caja.
-import { claveMovimiento, clasificarMovimiento, type MovimientoCartola } from '@atacama/core'
+import { claveMovimiento, clasificarMovimiento, compacto, type MovimientoCartola } from '@atacama/core'
 import type { FastifyInstance } from 'fastify'
 import { auditar } from './crud'
 import { prisma } from './db'
@@ -63,6 +63,41 @@ export function registrarBancos(app: FastifyInstance) {
       }
     }
     return { nuevos, duplicados }
+  })
+
+  // Detalle de las transferencias (lo que escribe quien paga en el Bice: "Fact 129683", "Sueldo ago 2026"...). La cartola no lo trae.
+  // Se asocia a cada movimiento por monto y beneficiario, con hasta 4 días de diferencia entre la fecha de la transferencia y la de la cartola.
+  app.post('/api/bancos/detalles', async (req, reply) => {
+    const { detalles } = (req.body ?? {}) as { detalles?: { fecha: string; monto: number; beneficiario: string; detalle: string }[] }
+    if (!Array.isArray(detalles) || detalles.length === 0) return reply.code(400).send({ error: 'No hay detalles para importar' })
+    const dia = 86400000
+    const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 } } })
+    const usados = new Set<number>()
+    let asociados = 0
+    const sinMovimiento: string[] = []
+    for (const d of detalles) {
+      const t = Date.parse(d.fecha)
+      if (!Number.isFinite(t) || !Number.isInteger(d.monto) || !d.detalle) continue
+      const nombre = compacto(d.beneficiario ?? '')
+      const candidatos = movs
+        .filter((x) => !usados.has(x.id) && x.cargo === d.monto && Math.abs(x.fecha.getTime() - t) <= 4 * dia)
+        .map((x) => {
+          const c = compacto(x.contraparte ?? x.glosa)
+          const mismoNombre = nombre.length >= 4 && (c.includes(nombre.slice(0, 6)) || nombre.includes(c.slice(0, 6)))
+          return { x, puntaje: (mismoNombre ? 0 : 10) + Math.abs(x.fecha.getTime() - t) / dia }
+        })
+        .sort((a, b) => a.puntaje - b.puntaje)
+      const mejor = candidatos[0]
+      if (!mejor) {
+        sinMovimiento.push(`${d.fecha} ${d.monto} ${d.beneficiario}`)
+        continue
+      }
+      usados.add(mejor.x.id)
+      await prisma.movimientoBanco.update({ where: { id: mejor.x.id }, data: { nota: d.detalle } })
+      asociados++
+    }
+    await auditar(req.usuario, 'MovimientoBanco', null, 'MODIFICAR', null, { detalles: asociados })
+    return { asociados, sinMovimiento }
   })
 
   // Volver a clasificar con las reglas de hoy: solo lo que no tiene categoría o la tiene puesta por la propia app.

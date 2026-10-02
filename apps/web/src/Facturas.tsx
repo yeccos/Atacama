@@ -40,8 +40,8 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
     setOcupado(true)
     setError('')
     try {
-      const r = await api<{ verificadas: number; nuevas: number; dudosas: string[] }>('/documentos/conciliar', 'POST', {})
-      setMensaje(`Se verificaron ${r.verificadas} facturas supuestas y se marcaron ${r.nuevas} pendientes como pagadas con su pago en la cartola.${r.dudosas.length ? ' Revisa: ' + r.dudosas.join('; ') : ''}`)
+      const r = await api<{ verificadas: number; nuevas: number; porDetalle: number; dudosas: string[] }>('/documentos/conciliar', 'POST', {})
+      setMensaje(`${r.porDetalle} facturas cuadradas por el detalle de la transferencia (N° de factura), ${r.verificadas} supuestas verificadas y ${r.nuevas} pendientes marcadas como pagadas por monto.${r.dudosas.length ? ' Revisa: ' + r.dudosas.join('; ') : ''}`)
       await cargar()
       alCambiar?.()
     } catch (e) {

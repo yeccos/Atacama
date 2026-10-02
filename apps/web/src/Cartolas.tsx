@@ -34,6 +34,7 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
   const [mensaje, setMensaje] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const entrada = useRef<HTMLInputElement>(null)
+  const entradaDetalle = useRef<HTMLInputElement>(null)
   const moneda = resumen?.cuenta.moneda ?? 'CLP'
   const clp = (x: number) => fmt(x, moneda)
   const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([])
@@ -99,6 +100,29 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
     }
   }
 
+  async function importarDetalles(archivo: File | undefined) {
+    if (!archivo) return
+    setOcupado(true)
+    setError('')
+    try {
+      const XLSX = await import('xlsx')
+      const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', raw: true })
+      const filas = XLSX.utils.sheet_to_json<Record<string, any>>(libro.Sheets[libro.SheetNames[0]], { defval: '' })
+      const detalles = filas
+        .map((f) => ({ fecha: String(f.fecha ?? '').slice(0, 10), monto: Math.round(Number(String(f.monto ?? '').replace(/[^\d-]/g, ''))), beneficiario: String(f.beneficiario ?? ''), detalle: String(f.detalle ?? '').trim() }))
+        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.fecha) && d.monto > 0 && d.detalle)
+      if (!detalles.length) throw new Error('El archivo no tiene filas válidas (columnas: fecha, monto, beneficiario, detalle)')
+      const r = await api('/bancos/detalles', 'POST', { detalles })
+      setMensaje(`Se asoció el detalle a ${r.asociados} movimientos${r.sinMovimiento.length ? `; ${r.sinMovimiento.length} no tienen movimiento en las cartolas importadas todavía` : ''}. Ahora puedes ir a Facturas recibidas y conciliar.`)
+      await cargar()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setOcupado(false)
+      if (entradaDetalle.current) entradaDetalle.current.value = ''
+    }
+  }
+
   async function reclasificar() {
     setOcupado(true)
     setError('')
@@ -160,6 +184,8 @@ export default function Cartolas({ alCambiar }: { alCambiar?: () => void }) {
         <button className="btn" disabled={ocupado} onClick={() => entrada.current?.click()}>
           {ocupado ? 'Leyendo…' : 'Importar cartolas (PDF o Excel)'}
         </button>
+        <input ref={entradaDetalle} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => importarDetalles(e.target.files?.[0])} />
+        <button className="btn" disabled={ocupado} onClick={() => entradaDetalle.current?.click()} title="CSV con las columnas fecha, monto, beneficiario, detalle (lo que se escribe en el Bice al transferir)">Importar detalle de pagos</button>
         <button className="btn" disabled={ocupado} onClick={reclasificar} title="Vuelve a clasificar lo que no tiene categoría con las reglas de Cuentas bancarias">Reclasificar</button>
       </div>
       <p className="mb-3 text-sm text-slate-500">
