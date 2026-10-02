@@ -6,6 +6,7 @@ import { prisma } from './db'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const SUPUESTO = 'Supuesto'
+const AVISO = 'Aviso'
 
 /** Positivo para facturas y notas de débito, negativo para notas de crédito. */
 const signo = (tipo: string) => (tipo === 'NOTA_CREDITO' ? -1 : 1)
@@ -48,7 +49,7 @@ export async function documentosConSaldo() {
     return {
       id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, tipo: d.tipo, folio: d.folio,
       emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
-      total, pagado: signo(d.tipo) * pagado, saldo, estado, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
+      total, pagado: signo(d.tipo) * pagado, saldo, estado, aviso: (d.aplicaciones.find((a) => (a.pago.nota ?? '').startsWith(AVISO))?.pago.nota ?? null) as string | null, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
     }
   })
 }
@@ -146,7 +147,65 @@ export function registrarDocumentos(app: FastifyInstance) {
       if (supuesto) verificadas++
       else nuevas++
     }
-    await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas + porDetalle })
-    return { verificadas, nuevas, porDetalle, dudosas }
+    // 3) Pagos que no calzan exacto: una factura pagada en dos partes, o cubierta por un reembolso a Manuel Errázuriz Lagos
+    //    (que paga con su plata y se le devuelve, a veces agrupando meses). Se marcan pagadas, con un aviso de la diferencia.
+    const REEMBOLSO = [
+      { proveedor: 'entel', clave: 'entel' },
+      { proveedor: 'bciseguros', clave: 'seguro bci' },
+      { proveedor: 'combustiblessanluis', clave: 'petroleo' },
+    ]
+    const pendientes = docs.filter((d) => d.aplicaciones.length === 0 || d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO)))
+    const pendientesReales = pendientes.filter((d) => d.aplicaciones.length === 0)
+    const aplicar = async (d: (typeof docs)[number], partes: { m: (typeof movs)[number]; monto: number }[], aviso: string, conciliar: boolean) => {
+      for (const p of partes) {
+        const pago = await prisma.pago.create({ data: { proveedorId: d.proveedorId, fecha: p.m.fecha, monto: p.monto, cuentaBancariaId: p.m.cuentaId, nota: `${AVISO}: ${aviso}` } })
+        await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: d.id, monto: p.monto } })
+        await prisma.conciliacion.create({ data: { movimientoId: p.m.id, tipoDestino: 'PAGO', destinoId: pago.id, monto: p.monto } })
+        if (conciliar) await prisma.movimientoBanco.update({ where: { id: p.m.id }, data: { estado: 'CONCILIADO', proveedorId: p.m.proveedorId ?? d.proveedorId, categoria: p.m.categoria ?? 'Proveedores' } })
+        usados.add(p.m.id)
+      }
+      aproximadas++
+      avisos.push(`${d.proveedor.nombre} ${d.folio}: ${aviso}`)
+    }
+    let aproximadas = 0
+    const avisos: string[] = []
+    // 3a) Dos pagos al mismo proveedor que suman (casi) la factura.
+    for (const d of pendientesReales) {
+      const nombre = compacto(d.proveedor.nombre)
+      const cand = movs.filter((x) => !usados.has(x.id) && x.contraparte && (compacto(x.contraparte).includes(nombre) || nombre.includes(compacto(x.contraparte).slice(0, 8))) && x.fecha.getTime() >= d.emision.getTime() - 20 * 86400000 && x.cargo < d.total)
+      let par: [(typeof movs)[number], (typeof movs)[number]] | null = null
+      for (let i = 0; i < cand.length && !par; i++) for (let j = i + 1; j < cand.length; j++) {
+        if (Math.abs(cand[i].cargo + cand[j].cargo - d.total) / d.total <= 0.02) { par = [cand[i], cand[j]]; break }
+      }
+      if (!par) continue
+      const dif = par[0].cargo + par[1].cargo - d.total
+      const primero = Math.min(par[0].cargo, d.total)
+      await aplicar(d, [{ m: par[0], monto: primero }, { m: par[1], monto: d.total - primero }], `pagada en dos partes (${par[0].cargo} + ${par[1].cargo}); ${dif === 0 ? 'calza exacto' : 'difiere en ' + Math.abs(dif) + ' de la factura (' + d.total + ')'}`, true)
+    }
+    // 3b) Reembolsos a Manuel Errázuriz Lagos que dicen de qué eran (Entel, seguro BCI, petróleo).
+    const reembolsos = movs.filter((x) => !usados.has(x.id) && x.nota && compacto(x.contraparte ?? '').includes('ERRAZURIZLAGOS'))
+    const pares: { d: (typeof docs)[number]; m: (typeof movs)[number]; dif: number }[] = []
+    for (const d of pendientesReales) {
+      if (d.aplicaciones.length) continue
+      const regla = REEMBOLSO.find((r) => compacto(d.proveedor.nombre).includes(r.proveedor.toUpperCase()))
+      if (!regla) continue
+      for (const x of reembolsos) {
+        if (!compacto(x.nota!).includes(compacto(regla.clave)) || x.fecha.getTime() < d.emision.getTime() - 10 * 86400000 || x.cargo < d.total * 0.98) continue
+        pares.push({ d, m: x, dif: Math.abs(x.cargo - d.total) })
+      }
+    }
+    pares.sort((a, b) => a.dif - b.dif)
+    const docsHechos = new Set<number>()
+    for (const p of pares) {
+      const agrupado = p.m.cargo > p.d.total * 1.5
+      if (docsHechos.has(p.d.id) || (!agrupado && usados.has(p.m.id))) continue
+      docsHechos.add(p.d.id)
+      const aviso = agrupado
+        ? `cubierta por el reembolso agrupado a M. Errázuriz Lagos de ${p.m.cargo} del ${iso(p.m.fecha)} («${p.m.nota}»); el monto de la factura (${p.d.total}) no se puede verificar`
+        : `cubierta por el reembolso a M. Errázuriz Lagos de ${p.m.cargo} del ${iso(p.m.fecha)} («${p.m.nota}»); difiere en ${p.dif} de la factura (${p.d.total})`
+      await aplicar(p.d, [{ m: p.m, monto: p.d.total }], aviso, !agrupado)
+    }
+    await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas + porDetalle + aproximadas })
+    return { verificadas, nuevas, porDetalle, aproximadas, avisos, dudosas }
   })
 }

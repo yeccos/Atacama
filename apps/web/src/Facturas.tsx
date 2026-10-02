@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 
 type Estado = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
-interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; estado: Estado; enPresupuesto: boolean; grupo: string | null }
+interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; estado: Estado; aviso?: string | null; enPresupuesto: boolean; grupo: string | null }
 interface Saldo { proveedorId: number; proveedor: string; n: number; saldo: number; masAntiguo: string }
 
 const clp = (x: number) => '$' + formatoNumero(Math.round(x))
@@ -40,8 +40,8 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
     setOcupado(true)
     setError('')
     try {
-      const r = await api<{ verificadas: number; nuevas: number; porDetalle: number; dudosas: string[] }>('/documentos/conciliar', 'POST', {})
-      setMensaje(`${r.porDetalle} facturas cuadradas por el detalle de la transferencia (N° de factura), ${r.verificadas} supuestas verificadas y ${r.nuevas} pendientes marcadas como pagadas por monto.${r.dudosas.length ? ' Revisa: ' + r.dudosas.join('; ') : ''}`)
+      const r = await api<{ verificadas: number; nuevas: number; porDetalle: number; aproximadas: number; avisos: string[]; dudosas: string[] }>('/documentos/conciliar', 'POST', {})
+      setMensaje(`${r.porDetalle} facturas cuadradas por el detalle de la transferencia (N° de factura), ${r.verificadas} supuestas verificadas y ${r.nuevas} pendientes marcadas como pagadas por monto. ${r.aproximadas} marcadas como pagadas con aviso (el monto no calza exacto).${r.avisos.length || r.dudosas.length ? ' Revisa: ' + [...r.avisos, ...r.dudosas].join('; ') : ''}`)
       await cargar()
       alCambiar?.()
     } catch (e) {
@@ -130,7 +130,7 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
                 <td className="px-3 py-1.5">{d.vencimiento ? formatoFecha(d.vencimiento) : ''}</td>
                 <td className="px-3 py-1.5 text-right">{clp(d.total)}</td>
                 <td className="px-3 py-1.5 text-right">{d.saldo ? clp(d.saldo) : ''}</td>
-                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span>{d.enPresupuesto && (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <span className="ml-1 text-xs text-slate-400">incluida en «{d.grupo}»</span>}</td>
+                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span>{d.aviso && <span className="ml-1 cursor-help text-xs text-amber-600" title={d.aviso}>⚠ revisar monto</span>}{d.enPresupuesto && (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <span className="ml-1 text-xs text-slate-400">incluida en «{d.grupo}»</span>}</td>
                 <td className="px-3 py-1.5 text-right">
                   {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <button className="text-xs text-sky-700 hover:underline" onClick={() => marcar(d, true)}>Marcar pagada</button>}
                   {d.estado === 'SUPUESTA' && <button className="text-xs text-sky-700 hover:underline" onClick={() => marcar(d, false)}>Dejar pendiente</button>}
