@@ -2,7 +2,7 @@
 // y los pagos a Victzarick, Concha, Noguera y familiares también lo son. Se carga una sola vez (marca `prestamosCargados`).
 import type { PrismaClient } from '@prisma/client'
 
-const PATRONES = ['VICTZARICK', 'CLAUDIO CONCHA', 'DAVID NOGUERA', 'CARLOS ERRAZURIZ SAAVEDRA', 'XIMENA SAAVEDRA', 'MARIA EUGENIA ERRAZURIZ']
+const PATRONES = ['DAVID NOGUERA', 'CARLOS ERRAZURIZ SAAVEDRA', 'XIMENA SAAVEDRA', 'MARIA EUGENIA ERRAZURIZ']
 
 export async function cargarDevolucionesDePrestamos(prisma: PrismaClient) {
   if (await prisma.parametro.findUnique({ where: { clave: 'prestamosCargados' } })) return

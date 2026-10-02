@@ -68,7 +68,7 @@ export function registrarBancos(app: FastifyInstance) {
   // Volver a clasificar con las reglas de hoy: solo lo que no tiene categoría o la tiene puesta por la propia app.
   app.post('/api/bancos/reclasificar', async (req) => {
     const { proveedores, empleados, reglas } = await contextoClasificacion()
-    const AUTOMATICAS = ['Remuneraciones', 'Reembolsos de personal', 'Devolución de préstamos']
+    const AUTOMATICAS = ['Remuneraciones', 'Reembolsos de personal', 'Devolución de préstamos', 'Equipos nuevos (inversión)']
     const movs = await prisma.movimientoBanco.findMany({ where: { OR: [{ categoria: null }, { categoria: { in: AUTOMATICAS } }] } })
     let cambiados = 0
     for (const m of movs) {
