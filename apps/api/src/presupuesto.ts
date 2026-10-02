@@ -285,7 +285,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const [a, m] = mesesPpto[0].split('-').map(Number)
     const previo = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`
     const flujo = armarFlujo({ ...prep.base, meses: [previo, ...mesesPpto] })
-    return { version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc }, flujo, advertencias: prep.advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo'), facturas: await facturasIncluidas() }
+    return { version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc }, flujo, advertencias: prep.advertencias, modoIVA: par.texto('devolucionIVAModo', 'fijo'), facturas: await facturasIncluidas(), saldoReal: await saldoRealDeCaja() }
   })
 
   /** Flujo semanal: una columna de cierre más N semanas desde el primer día del presupuesto. */
@@ -298,7 +298,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const flujo = armarFlujoSemanal(prep.semanal(Math.min(Number(q.semanas) || 13, 52)))
     return {
       version: { id: prep.c.version.id, nombre: prep.c.version.nombre, tc: prep.c.entrada.tc },
-      flujo, resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo), advertencias: prep.advertencias, facturas: await facturasIncluidas(),
+      flujo, resumen: resumirFlujoSemanal(flujo, prep.base.saldoMinimo), advertencias: prep.advertencias, facturas: await facturasIncluidas(), saldoReal: await saldoRealDeCaja(),
     }
   })
 
@@ -377,6 +377,13 @@ function fechaDelHito(
   if (!base) return h.fechaEsperada ? iso(h.fechaEsperada) : null
   const desfase = formaDePago.find((x) => x.evento === h.evento)?.diasDesfase ?? 0
   return sumarDias(iso(base), desfase)
+}
+
+/** Saldo de caja con que parte el flujo: la suma de las cuentas en pesos según su última cartola. */
+async function saldoRealDeCaja() {
+  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
+  const fechas = cuentas.map((c) => c.fechaSaldoInicial).filter((f): f is Date => !!f).sort((a, b) => b.getTime() - a.getTime())
+  return { monto: cuentas.reduce((s, c) => s + c.saldoInicial, 0), fecha: fechas[0] ? iso(fechas[0]) : null, cuentas: cuentas.filter((c) => c.fechaSaldoInicial).map((c) => c.nombre) }
 }
 
 async function prepararFlujo(versionId: number, op: OpFlujo = {}) {

@@ -15,6 +15,7 @@ import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarCobrosDeSeptiembre } from './cobrosSeptiembre'
 import { cargarCobrosReales } from './cobrosReales'
 import { cargarDiaArriendo } from './diaArriendo'
+import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
 import { cargarMPDeOctubre } from './mpOctubre'
 import { marcarArriendoPagadoPorMEL } from './arriendoMEL'
@@ -59,6 +60,7 @@ async function main() {
     await cargarCobrosDeSeptiembre(prisma)
     await cargarCobrosReales(prisma)
     await cargarDiaArriendo(prisma)
+    await quitarCuotasRossiServitral(prisma)
     await cargarBonoDescarga(prisma)
     await cargarMPDeOctubre(prisma)
     await ajustarCamionesMinimos(prisma)
@@ -405,6 +407,7 @@ async function main() {
   await cargarCobrosDeSeptiembre(prisma)
   await cargarCobrosReales(prisma)
   await cargarDiaArriendo(prisma)
+  await quitarCuotasRossiServitral(prisma)
   await cargarBonoDescarga(prisma)
   await cargarMPDeOctubre(prisma)
   await ajustarCamionesMinimos(prisma)

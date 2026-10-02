@@ -1,5 +1,5 @@
 // Flujo de caja: vista mensual, semanal (13 semanas) y comparación de escenarios.
-import { formatoNumero, parseNumeroCL, type PeriodoFlujo, type ResultadoFlujoSemanal, type ResumenSemanal } from '@atacama/core'
+import { formatoFecha, formatoNumero, parseNumeroCL, type PeriodoFlujo, type ResultadoFlujoSemanal, type ResumenSemanal } from '@atacama/core'
 import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
@@ -30,7 +30,7 @@ function Semanal() {
   const { versiones, versionId, setVersionId } = useVersiones()
   const [semanas, setSemanas] = useState(13)
   const [tc, setTc] = useState('')
-  const [datos, setDatos] = useState<{ flujo: ResultadoFlujoSemanal; resumen: ResumenSemanal; advertencias: string[]; version: { tc: number }; facturas: FacturaIncluida[] } | null>(null)
+  const [datos, setDatos] = useState<{ flujo: ResultadoFlujoSemanal; resumen: ResumenSemanal; advertencias: string[]; version: { tc: number }; facturas: FacturaIncluida[]; saldoReal: { monto: number; fecha: string | null; cuentas: string[] } } | null>(null)
   const [error, setError] = useState('')
 
   const cargar = useCallback(async () => {
@@ -84,6 +84,12 @@ function Semanal() {
         </label>
       </div>
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {datos?.saldoReal && (
+        <p className="mb-3 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          Saldo de caja real con que parte el flujo: <b>${formatoNumero(datos.saldoReal.monto)}</b>
+          {datos.saldoReal.fecha && <> al {formatoFecha(datos.saldoReal.fecha)}</>} ({datos.saldoReal.cuentas.join(', ') || 'sin cartola'}, según la última cartola importada).
+        </p>
+      )}
 
       {r && f && (
         <>
@@ -129,6 +135,7 @@ function Semanal() {
                 </tr>
               </thead>
               <tbody>
+                {fila('si', 'Saldo inicial de caja', f.periodos.map((_, i) => (i === 0 ? 0 : i === 1 ? f.saldoInicial : f.saldoFinal[i - 1])), 'saldo bg-sky-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.periodos.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Ingresos</td></tr>
                 <FilasEgresos
                   egresos={f.ingresos}

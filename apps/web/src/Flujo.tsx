@@ -1,5 +1,5 @@
 // Flujo de caja mensual proyectado: cobros por hitos, costos con IVA, remuneraciones, deudas y partidas manuales.
-import { formatoNumero, parseNumeroCL, type ResultadoFlujo } from '@atacama/core'
+import { formatoFecha, formatoNumero, parseNumeroCL, type ResultadoFlujo } from '@atacama/core'
 import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from './api'
@@ -13,6 +13,7 @@ interface Respuesta {
   advertencias: string[]
   modoIVA: string
   facturas: FacturaIncluida[]
+  saldoReal: { monto: number; fecha: string | null; cuentas: string[] }
 }
 
 const num = (v: number) => (Math.abs(v) < 0.5 ? '' : formatoNumero(Math.round(v)))
@@ -92,6 +93,13 @@ export default function Flujo() {
 
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
+      {datos?.saldoReal && (
+        <p className="mb-3 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          Saldo de caja real con que parte el flujo: <b>${formatoNumero(datos.saldoReal.monto)}</b>
+          {datos.saldoReal.fecha && <> al {formatoFecha(datos.saldoReal.fecha)}</>} ({datos.saldoReal.cuentas.join(', ') || 'sin cartola'}, según la última cartola importada).
+        </p>
+      )}
+
       {f && f.alertas.length > 0 && (
         <div className="mb-3 rounded border border-red-200 bg-red-50 p-3">
           <p className="mb-1 text-sm font-semibold text-red-800">Alertas de caja</p>
@@ -131,6 +139,7 @@ export default function Flujo() {
                 </tr>
               </thead>
               <tbody>
+                {fila('si', 'Saldo inicial de caja', f.meses.map((_, i) => (i === 0 ? 0 : i === 1 ? f.saldoInicial : f.saldoFinal[i - 1])), 'saldo bg-sky-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.meses.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Ingresos</td></tr>
                 <FilasEgresos
                   egresos={f.ingresos}
