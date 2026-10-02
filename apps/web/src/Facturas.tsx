@@ -5,7 +5,7 @@ import { api, sesion } from './api'
 import { aBase64, leerFacturaPdf, rutDigitos } from './facturaPdf'
 
 type Estado = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
-interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; proveedorRut?: string | null; tienePdf?: boolean; estado: Estado; motivo?: string | null; aviso?: string | null; enPresupuesto: boolean; grupo: string | null }
+interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; proveedorRut?: string | null; tienePdf?: boolean; pagadoReal?: number | null; pagoCompartido?: boolean; montoMovimiento?: number | null; diferencia?: number | null; estado: Estado; motivo?: string | null; aviso?: string | null; enPresupuesto: boolean; grupo: string | null }
 interface Detalle {
   proveedor: string; rut: string | null; tipo: string; folio: string; emision: string; vencimiento: string | null
   neto: number; exento: number; iva: number; total: number; nota: string | null; estado: Estado; saldo: number; motivo: string | null; aviso: string | null; grupo: string | null; pdf: string | null; lineas: string[]
@@ -173,7 +173,7 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
           <thead className="sticky top-0 bg-white">
             <tr className="border-b border-slate-200 text-left">
               <th className="px-3 py-2">Proveedor</th><th className="px-3 py-2">N°</th><th className="px-3 py-2">Emisión</th><th className="px-3 py-2">Vence</th>
-              <th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Saldo</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2"></th>
+              <th className="px-3 py-2 text-right">Total factura</th><th className="px-3 py-2 text-right">Pagado (cartola)</th><th className="px-3 py-2 text-right">Diferencia</th><th className="px-3 py-2 text-right">Saldo</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -184,8 +184,10 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
                 <td className="px-3 py-1.5">{formatoFecha(d.emision)}</td>
                 <td className="px-3 py-1.5">{d.vencimiento ? formatoFecha(d.vencimiento) : ''}</td>
                 <td className="px-3 py-1.5 text-right">{clp(d.total)}</td>
+                <td className="px-3 py-1.5 text-right">{d.pagadoReal != null ? clp(d.pagadoReal) : d.pagoCompartido ? <span className="cursor-help text-xs text-slate-400" title={`Un mismo pago de ${clp(d.montoMovimiento ?? 0)} cubre varias facturas`}>pago compartido</span> : ''}</td>
+                <td className="px-3 py-1.5 text-right">{d.diferencia ? <span className={d.diferencia < 0 ? 'text-red-700' : 'text-amber-700'} title={d.diferencia < 0 ? 'Se pagó menos que la factura' : 'Se pagó más que la factura'}>{d.diferencia > 0 ? '+' : '-'}{clp(Math.abs(d.diferencia))}</span> : d.pagadoReal != null ? <span className="text-slate-300">0</span> : ''}</td>
                 <td className="px-3 py-1.5 text-right">{d.saldo ? clp(d.saldo) : ''}</td>
-                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span>{d.motivo && <div className="max-w-md truncate text-xs text-amber-700" title={d.motivo}>⚠ {d.motivo}</div>}{d.aviso && <span className="ml-1 cursor-help text-xs text-amber-600" title={d.aviso}>⚠ revisar monto</span>}{d.enPresupuesto && (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <span className="ml-1 text-xs text-slate-400">incluida en «{d.grupo}»</span>}</td>
+                <td className="px-3 py-1.5"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[d.estado].clase}`}>{ETIQUETA[d.estado].texto}</span>{d.motivo && <div className="max-w-md truncate text-xs text-amber-700" title={d.motivo}>⚠ {d.motivo}</div>}{d.aviso && <span className="ml-1 cursor-help text-xs text-amber-600" title={d.aviso}>⚠ ver aviso</span>}{d.enPresupuesto && (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <span className="ml-1 text-xs text-slate-400">incluida en «{d.grupo}»</span>}</td>
                 <td className="px-3 py-1.5 text-right">
                   {(d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && <button className="text-xs text-sky-700 hover:underline" onClick={(e) => { e.stopPropagation(); marcar(d, true) }}>Marcar pagada</button>}
                   {d.estado === 'SUPUESTA' && <button className="text-xs text-sky-700 hover:underline" onClick={(e) => { e.stopPropagation(); marcar(d, false) }}>Dejar pendiente</button>}

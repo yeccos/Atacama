@@ -53,6 +53,23 @@ export async function documentosConSaldo() {
   })
   const conPdf = new Set((await prisma.documentoArchivo.findMany({ select: { documentoId: true } })).map((x) => x.documentoId))
   const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 }, cuenta: { moneda: 'CLP' } }, orderBy: { fecha: 'asc' } })
+  // Lo realmente transferido según la cartola para cada factura: los movimientos que se le asociaron. Si un mismo movimiento
+  // cubre varias facturas no se puede repartir, y queda como "compartido".
+  const concs = await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO' } })
+  const movPorPago = new Map<number, number[]>()
+  for (const c of concs) if (c.destinoId != null) movPorPago.set(c.destinoId, [...(movPorPago.get(c.destinoId) ?? []), c.movimientoId])
+  const cargoMov = new Map((await prisma.movimientoBanco.findMany({ where: { id: { in: [...new Set(concs.map((c) => c.movimientoId))] } }, select: { id: true, cargo: true } })).map((x) => [x.id, x.cargo]))
+  const docsPorMov = new Map<number, Set<number>>()
+  for (const d of docs) for (const a of d.aplicaciones) for (const mid of movPorPago.get(a.pagoId) ?? []) docsPorMov.set(mid, (docsPorMov.get(mid) ?? new Set()).add(d.id))
+  const asignado = new Map<number, number>()
+  for (const c of concs) asignado.set(c.movimientoId, (asignado.get(c.movimientoId) ?? 0) + c.monto)
+  const pagoCartola = (d: (typeof docs)[number]) => {
+    const ids = [...new Set(d.aplicaciones.flatMap((a) => movPorPago.get(a.pagoId) ?? []))]
+    if (!ids.length) return { real: null as number | null, compartido: false, movimiento: null as number | null }
+    const monto = ids.reduce((s, id) => s + (cargoMov.get(id) ?? 0), 0)
+    const compartido = ids.some((id) => (docsPorMov.get(id)?.size ?? 0) > 1 || (cargoMov.get(id) ?? 0) > (asignado.get(id) ?? 0) * 1.02)
+    return { real: compartido ? null : monto, compartido, movimiento: monto }
+  }
   const hastaCartola = movs.length ? iso(movs[movs.length - 1].fecha) : null
   const peso = (n: number) => '$' + n.toLocaleString('es-CL')
   /** Por qué una factura figura como pagada "supuesta": qué se buscó en la cartola y qué se encontró. */
@@ -73,7 +90,7 @@ export async function documentosConSaldo() {
     return {
       id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, proveedorRut: d.proveedor.rut, tienePdf: conPdf.has(d.id), tipo: d.tipo, folio: d.folio,
       emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
-      total, pagado: signo(d.tipo) * pagado, saldo, estado, motivo: (supuesto ? motivoSupuesto(d) : null) as string | null, aviso: (d.aplicaciones.find((a) => (a.pago.nota ?? '').startsWith(AVISO))?.pago.nota ?? null) as string | null, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
+      total, pagado: signo(d.tipo) * pagado, saldo, estado, ...(() => { const p = pagoCartola(d); return { pagadoReal: p.real, pagoCompartido: p.compartido, montoMovimiento: p.movimiento, diferencia: p.real === null ? null : p.real - d.total } })(), motivo: (supuesto ? motivoSupuesto(d) : null) as string | null, aviso: (d.aplicaciones.find((a) => (a.pago.nota ?? '').startsWith(AVISO))?.pago.nota ?? null) as string | null, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
     }
   })
 }
