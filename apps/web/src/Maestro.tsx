@@ -259,9 +259,9 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
   }
 
   return (
-    <section className="mb-6">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h2 className="mr-auto text-base font-semibold">{titulo}</h2>
+    <section className="mb-4">
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <h2 className="mr-auto text-sm font-semibold">{titulo}</h2>
         <button className="btn-primario" onClick={() => setNuevo(Object.fromEntries(columnas.map((c) => [c.campo, c.defecto ?? ''])))}>
           Agregar
         </button>
@@ -279,7 +279,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
           }}
         />
       </div>
-      {ayuda && <p className="mb-2 text-sm text-slate-500">{ayuda}</p>}
+      {ayuda && <p className="mb-1.5 text-xs text-slate-500">{ayuda}</p>}
       {error && <p className="mb-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {nuevo && (
@@ -322,6 +322,8 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
         rowData={filas}
         columnDefs={columnDefs}
         domLayout="autoHeight"
+        rowHeight={30}
+        headerHeight={32}
         getRowId={(p) => String(p.data.id)}
         rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
         onSelectionChanged={(e) => {

@@ -18,8 +18,8 @@ function PaginaMaestro({ pagina }: { pagina: Pagina }) {
       <Maestro {...pagina.principal} alSeleccionar={pagina.detalles ? setPadre : undefined} />
       {pagina.detalles &&
         (padre ? (
-          <div className="mb-6 border-l-4 border-sky-200 pl-4">
-            <p className="mb-3 text-sm font-medium text-sky-800">
+          <div className="mb-4 border-l-4 border-sky-200 pl-3">
+            <p className="mb-1.5 text-sm font-medium text-sky-800">
               {padre.nombre ?? padre.puerto ?? padre.acreedor}
             </p>
             {pagina.detalles.map(({ campoPadre, ...d }) => (
@@ -27,7 +27,7 @@ function PaginaMaestro({ pagina }: { pagina: Pagina }) {
             ))}
           </div>
         ) : (
-          <p className="mb-6 text-sm text-slate-500">Selecciona una fila para ver su detalle.</p>
+          <p className="mb-4 text-sm text-slate-500">Selecciona una fila para ver su detalle.</p>
         ))}
       {pagina.extras?.map((e) => <Maestro key={e.titulo} {...e} />)}
     </>
@@ -235,7 +235,7 @@ export default function App() {
         ))}
         <button className="btn mt-4 w-full" onClick={salir}>Cerrar sesión</button>
       </nav>
-      <main className="min-w-0 flex-1 p-6">
+      <main className="min-w-0 flex-1 p-4">
         {actual === 'inicio' && <Inicio />}
         {actual === 'presupuesto' && <Presupuesto irA={setActual} />}
         {actual === 'flujo' && <FlujoPagina />}
