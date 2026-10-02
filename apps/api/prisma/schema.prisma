@@ -615,6 +615,10 @@ model Deuda {
   inicio        DateTime?
   fin           DateTime?
   nota          String?
+  cuotasTotal   Int?
+  cuotasPagadas Int?
+  // false = solo se registra (el flujo ya cuenta el pago por otra vía, p. ej. la transferencia mensual desde el Bice).
+  enFlujo       Boolean   @default(true)
 
   cuotas CuotaDeuda[]
   gastos GastoDriver[]
@@ -642,6 +646,8 @@ model CuentaBancaria {
   fechaSaldoInicial DateTime?
   // Mapeo de columnas de la cartola, en JSON.
   mapeoCartola      String?
+  // false = el saldo se registra pero no suma a la caja del flujo (el flujo parte solo con el Bice).
+  enFlujo           Boolean   @default(true)
 
   movimientos MovimientoBanco[]
   cobros      CobroCliente[]

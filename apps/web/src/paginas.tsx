@@ -283,7 +283,7 @@ export const PAGINAS: Pagina[] = [
     id: 'deudas', menu: 'Deudas y créditos', grupo: 'Proveedores',
     principal: {
       recurso: 'deudas', titulo: 'Deudas y créditos',
-      ayuda: 'Los saldos están por completar. La tabla de cuotas se genera en la Fase 4.',
+      ayuda: 'Los tres créditos de Bancoestado van por separado, solo como registro: en el flujo se cuenta la transferencia mensual de $1,2 MM desde el Bice con que se pagan.',
       columnas: [
         { campo: 'acreedor', titulo: 'Acreedor', ancho: 280 },
         { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
@@ -291,6 +291,8 @@ export const PAGINAS: Pagina[] = [
         { campo: 'montoOriginal', titulo: 'Monto original', tipo: 'monto' },
         { campo: 'saldo', titulo: 'Saldo', tipo: 'monto' },
         { campo: 'cuota', titulo: 'Cuota mensual', tipo: 'monto' },
+        { campo: 'cuotasPagadas', titulo: 'Cuotas pagadas', tipo: 'entero', ancho: 110 },
+        { campo: 'cuotasTotal', titulo: 'Cuotas totales', tipo: 'entero', ancho: 110 },
         { campo: 'tasa', titulo: 'Tasa %', tipo: 'decimal' },
         { campo: 'inicio', titulo: 'Inicio', tipo: 'fecha' },
         { campo: 'fin', titulo: 'Término', tipo: 'fecha' },

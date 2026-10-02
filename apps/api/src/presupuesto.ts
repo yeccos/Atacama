@@ -381,7 +381,7 @@ function fechaDelHito(
 
 /** Saldo de caja con que parte el flujo: la suma de las cuentas en pesos según su última cartola. */
 async function saldoRealDeCaja() {
-  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
+  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP', enFlujo: true } })
   const fechas = cuentas.map((c) => c.fechaSaldoInicial).filter((f): f is Date => !!f).sort((a, b) => b.getTime() - a.getTime())
   return { monto: cuentas.reduce((s, c) => s + c.saldoInicial, 0), fecha: fechas[0] ? iso(fechas[0]) : null, cuentas: cuentas.filter((c) => c.fechaSaldoInicial).map((c) => c.nombre) }
 }
@@ -432,7 +432,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   advertencias.push(...proy.advertencias)
   cobros.push(...proy.cobros.map((x) => ({ ...x, fecha: sumarDias(x.fecha, atraso) })))
 
-  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP' } })
+  const cuentas = await prisma.cuentaBancaria.findMany({ where: { moneda: 'CLP', enFlujo: true } })
   // Lo que se debe a proveedores y el presupuesto no proyecta (el resto ya está en sus líneas: sumarlo duplicaría); sale el día de su vencimiento, o hoy si ya venció.
   const hoy = new Date().toISOString().slice(0, 10)
   const facturasPendientes = (await documentosConSaldo()).filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && !d.enPresupuesto && d.saldo > 0)
@@ -441,7 +441,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `${d.saldo < 0 ? "Nota de crédito" : "Factura"} ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),
   ]
 
-  const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null } }, include: { gastos: true } })
+  const deudasDb = await prisma.deuda.findMany({ where: { cuota: { not: null }, enFlujo: true }, include: { gastos: true } })
   const deudas = deudasDb
     .filter((d) => d.gastos.length === 0)
     .map((d) => ({ acreedor: d.acreedor, cuota: d.cuota!, desde: d.inicio ? iso(d.inicio).slice(0, 7) : null, hasta: d.fin ? iso(d.fin).slice(0, 7) : null }))
