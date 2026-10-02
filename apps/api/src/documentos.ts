@@ -109,7 +109,7 @@ export function registrarDocumentos(app: FastifyInstance) {
     return {
       proveedor: d.proveedor.nombre, rut: d.proveedor.rut, tipo: d.tipo, folio: d.folio, emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
       neto: d.neto, exento: d.exento, iva: d.iva, total: d.total, nota: d.nota, estado: resumen?.estado, saldo: resumen?.saldo, motivo: resumen?.motivo ?? null,
-      aviso: resumen?.aviso ?? null, grupo: resumen?.grupo ?? null, pdf: d.archivo?.nombre ?? null, pagos,
+      aviso: resumen?.aviso ?? null, grupo: resumen?.grupo ?? null, pdf: d.archivo?.nombre ?? null, lineas: d.lineas ? (JSON.parse(d.lineas) as string[]) : [], pagos,
     }
   })
 

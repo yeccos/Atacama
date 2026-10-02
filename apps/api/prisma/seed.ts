@@ -20,6 +20,8 @@ import { cargarParametrosF29 } from './f29'
 import { cargarDiaIVA25 } from './diaIVA25'
 import { cargarIVACalculado } from './ivaCalculado'
 import { cargarSaldoCajaOctubre } from './saldoCajaOctubre'
+import { cargarLineasFacturas } from './lineasFacturas'
+import { retirarGuiasDespacho } from './sinGuias'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -71,6 +73,8 @@ async function main() {
     await cargarDiaIVA25(prisma)
     await cargarIVACalculado(prisma)
     await cargarSaldoCajaOctubre(prisma)
+    await cargarLineasFacturas(prisma)
+    await retirarGuiasDespacho(prisma)
     await cargarMPDeSeptiembre(prisma)
     await quitarCuotasRossiServitral(prisma)
     await cargarBonoDescarga(prisma)
@@ -424,6 +428,8 @@ async function main() {
   await cargarDiaIVA25(prisma)
   await cargarIVACalculado(prisma)
   await cargarSaldoCajaOctubre(prisma)
+  await cargarLineasFacturas(prisma)
+  await retirarGuiasDespacho(prisma)
   await cargarMPDeSeptiembre(prisma)
   await quitarCuotasRossiServitral(prisma)
   await cargarBonoDescarga(prisma)

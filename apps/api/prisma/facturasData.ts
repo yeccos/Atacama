@@ -1,4 +1,4 @@
-// Las 61 facturas recibidas entre el 2-08 y el 30-09-2026 (leídas de los PDF): [rut, emisor, tipo, folio, emisión, neto, exento, iva, total].
+// Las facturas (sin las guías de despacho) recibidas entre el 2-08 y el 30-09-2026 (leídas de los PDF): [rut, emisor, tipo, folio, emisión, neto, exento, iva, total].
 export const FACTURAS_RECIBIDAS: [string, string, string, string, string, number, number, number, number][] = [
   ["78.461.670-3","AG. DE AD. SANDRO ROSSI WITTEMANN Y CIA.","FACTURA","432365","2026-09-30",210203,0,39939,250142],
   ["78.438.124-2","COISA SPA","FACTURA","40","2026-09-25",503440,0,95654,599094],
@@ -55,10 +55,8 @@ export const FACTURAS_RECIBIDAS: [string, string, string, string, string, number
   ["8.409.664-4","MARCOS SIMON ZAMBON BERLAGOSKY","FACTURA","89524","2026-08-06",62400,0,11856,74256],
   ["99.521.990-5","EUROFINS TESTING CHILE S.A.","FACTURA","114694","2026-08-05",46563,0,8847,55410],
   ["96.972.640-8","KRONOX S.A.","FACTURA","40734","2026-08-03",92382,0,17553,109935],
-  ["78.252.401-1","COMERCIAL TECA LIMITADA","FACTURA","80","2026-09-30",493500,0,93765,587265],
   ["76.927.748-K","INMOBILIARIA COVINTEC LIMITADA","FACTURA","4728","2026-08-02",79067,2167397,15023,2261487],
   ["96.972.640-8","KRONOX S.A.","FACTURA","41431","2026-09-28",92382,0,17553,109935],
   ["8.409.664-4","MARCOS SIMON ZAMBON BERLAGOSKY","FACTURA","90578","2026-09-28",62400,0,11856,74256],
-  ["79.947.100-0","SQM INDUSTRIAL S.A.","FACTURA","1395822","2026-09-27",9844604,0,1870475,11715079],
   ["78.461.670-3","AG. DE AD. SANDRO ROSSI WITTEMANN Y CIA.","FACTURA","432378","2026-09-30",210203,0,39939,250142],
 ]

@@ -560,6 +560,7 @@ model Documento {
   cuentaId    Int?
   cuenta      CuentaContable? @relation(fields: [cuentaId], references: [id])
   nota        String?
+  lineas      String? // JSON: líneas de detalle de la factura (texto)
 
   aplicaciones AplicacionPago[]
   costos       CostoEmbarque[]

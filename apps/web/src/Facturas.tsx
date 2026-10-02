@@ -8,7 +8,7 @@ type Estado = 'PAGADA' | 'SUPUESTA' | 'PARCIAL' | 'PENDIENTE'
 interface Doc { id: number; proveedorId: number; proveedor: string; tipo: string; folio: string; emision: string; vencimiento: string | null; total: number; pagado: number; saldo: number; proveedorRut?: string | null; tienePdf?: boolean; estado: Estado; motivo?: string | null; aviso?: string | null; enPresupuesto: boolean; grupo: string | null }
 interface Detalle {
   proveedor: string; rut: string | null; tipo: string; folio: string; emision: string; vencimiento: string | null
-  neto: number; exento: number; iva: number; total: number; nota: string | null; estado: Estado; saldo: number; motivo: string | null; aviso: string | null; grupo: string | null; pdf: string | null
+  neto: number; exento: number; iva: number; total: number; nota: string | null; estado: Estado; saldo: number; motivo: string | null; aviso: string | null; grupo: string | null; pdf: string | null; lineas: string[]
   pagos: { fecha: string; monto: number; nota: string | null; movimientos: { fecha: string; cargo: number; cuenta: string; contraparte: string | null; glosa: string; detalle: string | null }[] }[]
 }
 interface Saldo { proveedorId: number; proveedor: string; n: number; saldo: number; masAntiguo: string }
@@ -222,6 +222,23 @@ function PanelFactura({ doc, det, cerrar, verPdf }: { doc: Doc; det: Detalle | n
                 <tr className="border-t border-slate-200 font-semibold"><td>Total</td><td className="text-right">{clp(det.total)}</td></tr>
               </tbody>
             </table>
+            {det.lineas.length > 0 && (
+              <div className="mb-3 overflow-x-auto rounded border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead><tr className="bg-slate-50 text-left text-slate-500"><th className="px-2 py-1">Detalle de la factura</th></tr></thead>
+                  <tbody>
+                    {det.lineas.map((l, i) => {
+                      const c = l.split(' | ')
+                      return (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="px-2 py-1">{c.length > 1 ? <div className="flex gap-3"><span className="mr-auto">{c.slice(0, c.length > 3 ? -3 : -1).join(' · ')}</span><span className="whitespace-nowrap text-slate-500">{c.slice(c.length > 3 ? -3 : -1).join(' · ')}</span></div> : <span className="text-slate-500">{l}</span>}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <p className="mb-2 text-sm"><span className={`rounded px-1.5 py-0.5 text-xs ${ETIQUETA[det.estado].clase}`}>{ETIQUETA[det.estado].texto}</span>{det.saldo ? <span className="ml-2">Saldo por pagar: <b>{clp(det.saldo)}</b></span> : null}{det.grupo && det.saldo ? <span className="ml-2 text-xs text-slate-400">incluida en «{det.grupo}» del flujo</span> : null}</p>
             {det.motivo && <p className="mb-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠ {det.motivo}</p>}
             {det.aviso && <p className="mb-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠ {det.aviso}</p>}
@@ -235,7 +252,7 @@ function PanelFactura({ doc, det, cerrar, verPdf }: { doc: Doc; det: Detalle | n
                 ))}
               </div>
             ))}
-            {!doc.tienePdf && <p className="mt-2 text-xs text-slate-400">Esta factura no tiene PDF adjunto. Usa «Adjuntar PDFs de facturas» arriba para subirlo.</p>}
+            {!doc.tienePdf && <p className="mt-2 text-xs text-slate-400">Esta factura no tiene el PDF original adjunto (opcional: «Adjuntar PDFs de facturas» arriba).</p>}
           </>
         )}
       </div>
