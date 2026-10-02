@@ -221,18 +221,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const c = await cargarEntrada(versionId)
     if (!c) return reply.code(404).send({ error: 'La versión no existe' })
     const { entrada, par } = c
-    const compras = await prisma.compraMPPlan.findMany({ where: { versionId } })
-    const porOrigen: Record<number, number[]> = {}
-    for (const x of compras) {
-      const i = entrada.meses.indexOf(iso(x.mes).slice(0, 7))
-      if (i < 0) continue
-      ;(porOrigen[x.origenId] ??= entrada.meses.map(() => 0))[i] += x.camiones
-    }
-    // Stock de hoy por origen: lo recibido menos lo consumido de cada camión.
-    const stock: Record<number, number> = {}
-    for (const l of await prisma.camionMP.findMany({ include: { consumos: true } })) {
-      stock[l.origenId] = (stock[l.origenId] ?? 0) + num(l.toneladasRecibidas) - l.consumos.reduce((s, x) => s + num(x.toneladasMP), 0)
-    }
+    const { porOrigen, stock } = await datosPlanMP(versionId, entrada)
     // El mes anterior al plan (septiembre): lo comprado según los camiones registrados; el consumo de ese mes no se lleva.
     const mesPrevio = (() => {
       const [a, mm] = entrada.meses[0].split('-').map(Number)
@@ -446,11 +435,39 @@ async function saldoRealDeCaja() {
   return { monto: cuentas.reduce((s, c) => s + c.saldoInicial, 0), fecha: fechas[0] ? iso(fechas[0]) : null, cuentas: cuentas.filter((c) => c.fechaSaldoInicial).map((c) => c.nombre) }
 }
 
+/** Camiones de MP comprados por mes y origen (según el plan) y el stock de hoy de cada origen (camiones recibidos menos lo consumido). */
+async function datosPlanMP(versionId: number, entrada: EntradaPpto) {
+  const porOrigen: Record<number, number[]> = {}
+  for (const x of await prisma.compraMPPlan.findMany({ where: { versionId } })) {
+    const i = entrada.meses.indexOf(iso(x.mes).slice(0, 7))
+    if (i < 0) continue
+    ;(porOrigen[x.origenId] ??= entrada.meses.map(() => 0))[i] += x.camiones
+  }
+  const stock: Record<number, number> = {}
+  for (const l of await prisma.camionMP.findMany({ include: { consumos: true } })) {
+    stock[l.origenId] = (stock[l.origenId] ?? 0) + num(l.toneladasRecibidas) - l.consumos.reduce((s, x) => s + num(x.toneladasMP), 0)
+  }
+  return { porOrigen, stock }
+}
+
 async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   const c = await cargarEntrada(versionId, { tc: op.tc, sinCliente: op.sinCliente })
   if (!c) return null
   const { entrada, par } = c
   let ppto = calcularPresupuesto(entrada, 'corregido')
+  {
+    // La caja paga la materia prima al comprar cada camión (al contado): toneladas del camión × costo por tonelada, en el mes de la
+    // compra. El presupuesto (EERR) la reconoce al consumirla; para el flujo se usa el plan de camiones comprados.
+    const { porOrigen, stock } = await datosPlanMP(versionId, entrada)
+    const planes = planificarMP(entrada, porOrigen, stock, par.numero('stockMinimoMPTon', 0))
+    ppto = {
+      ...ppto,
+      egresos: ppto.egresos.map((l) => {
+        const plan = l.tipo === 'MP' && l.clave.startsWith('mp-') ? planes.find((p) => 'mp-' + p.origenId === l.clave) : undefined
+        return plan ? { ...l, valores: plan.compradasT.map((t) => -t * plan.costoPorTonCLP), formula: 'Camiones comprados del plan × toneladas por camión × costo por tonelada (al contado, en el mes de la compra)' } : l
+      }),
+    }
+  }
   if (op.costosPct) ppto = escalarCostos(ppto, op.costosPct)
   const advertencias = [...ppto.advertencias]
   const atraso = op.atrasoCobros ?? 0
