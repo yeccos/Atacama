@@ -457,6 +457,11 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     ivaPct: par.numero('ivaPct', 19),
     devolucionIVAModo: (par.texto('devolucionIVAModo', 'fijo') === 'calculado' ? 'calculado' : 'fijo') as 'fijo' | 'calculado',
     devolucionIVAMensual: par.numero('devolucionIVAMensual', 0),
+    devolucionIVAPct: par.numero('devolucionIVAPct', 100),
+    periodosIVA: (await prisma.periodoIVA.findMany()).map((x) => ({
+      mes: iso(x.mes).slice(0, 7), ivaCredito: x.ivaCredito || null, devolucionEsperada: x.devolucionEsperada || null,
+      fechaDevolucion: x.fechaDevolucionEst ? iso(x.fechaDevolucionEst) : null,
+    })),
     rezagoIVAMeses: par.numero('rezagoIVAMeses', 1),
     mesesSinFin: par.numero('mesesCuotaSinFin', 12),
     saldoMinimo: par.numero('saldoMinimoCaja', 0),

@@ -114,13 +114,15 @@ describe('plazo de pago del proveedor', () => {
 })
 
 describe('materia prima ya pagada', () => {
-  it('no sale de la caja (mensual ni semanal), pero sigue dando IVA crédito', () => {
+  it('no sale de la caja (mensual ni semanal), pero da IVA crédito el mes de la compra', () => {
     const e = base()
     e.mpPagadoHasta = '2026-10'
     const sem = armarFlujoSemanal(e)
     expect(sem.egresos.find((l) => l.clave === 'mp')!.valores.reduce((s, x) => s + x, 0)).toBeCloseTo(500000 * 1.19, 6) // solo noviembre
     const men = armarFlujo({ ...e, meses: ['2026-09', ...MESES] })
     expect(men.egresos.find((l) => l.clave === 'mp')!.valores).toEqual([0, 0, 595000])
-    expect(men.ivaCredito[1]).toBeGreaterThan(190000) // octubre conserva el IVA de la compra pagada
+    // La compra de octubre ya está pagada: se hizo en septiembre, donde nace su IVA crédito (se devuelve en octubre).
+    expect(men.ivaCredito[0]).toBeGreaterThanOrEqual(190000)
+    expect(men.ivaCredito[1]).toBeLessThan(men.ivaCredito[0])
   })
 })

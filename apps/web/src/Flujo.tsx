@@ -200,6 +200,18 @@ export default function Flujo() {
           ]}
         />
         <Maestro
+          recurso="periodosIVA"
+          titulo="Devolución de IVA exportador: ajustes por mes de compra"
+          ayuda="La devolución se calcula sola: el IVA de las compras de cada mes (la materia prima ya pagada cuenta en el mes en que se compró) vuelve el mes siguiente. Aquí corriges un mes: el IVA crédito real, o directamente la devolución esperada y el día en que llega. Mes = primer día del mes de las compras (01-09-2026). El % recuperable y el rezago están en Indicadores y parámetros."
+          alCambiar={cargar}
+          columnas={[
+            { campo: 'mes', titulo: 'Mes de las compras', tipo: 'fecha', ancho: 170 },
+            { campo: 'ivaCredito', titulo: 'IVA crédito real ($)', tipo: 'clp', ancho: 170 },
+            { campo: 'devolucionEsperada', titulo: 'Devolución esperada ($)', tipo: 'clp', ancho: 190 },
+            { campo: 'fechaDevolucionEst', titulo: 'Fecha en que llega', tipo: 'fecha', ancho: 160 },
+          ]}
+        />
+        <Maestro
           recurso="partidasFlujo"
           titulo="Partidas manuales del flujo"
           ayuda="Ingresos (+) y egresos (−) puntuales, en pesos. Ejemplo: el pago único de octubre o los movimientos de la última semana de septiembre."

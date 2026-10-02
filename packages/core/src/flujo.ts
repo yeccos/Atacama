@@ -1,6 +1,7 @@
 // Flujo de caja proyectado: cobros por hitos, costos del presupuesto con IVA, remuneraciones,
 // deudas y partidas manuales. Los montos del flujo van con IVA (el presupuesto va en neto).
 import { totalPedidoUsdCent, type Escala } from './comercial'
+import { devolucionesIVA, ivaCreditoPorMes, type PeriodoIVAIn } from './iva'
 import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES, type ResultadoPpto } from './presupuesto'
 
 // ───────────── Fechas de un embarque y de sus hitos de cobro ─────────────
@@ -169,6 +170,10 @@ export interface EntradaFlujo {
   devolucionIVAMensual: number
   /** Meses entre la compra y la devolución, en modo calculado. */
   rezagoIVAMeses: number
+  /** % del IVA crédito que se recupera (modo calculado). */
+  devolucionIVAPct?: number
+  /** Ajustes por mes de compra: crédito real, devolución esperada y su fecha. */
+  periodosIVA?: PeriodoIVAIn[]
   /** Meses que se proyecta una deuda sin fecha de término. */
   mesesSinFin: number
   saldoMinimo: number
@@ -245,10 +250,6 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
       if (l.tipo === 'MP' && e.mpPagadoHasta && i >= 0 && e.ppto.meses[i] <= e.mpPagadoHasta) return 0
       return i < 0 || l.valores[i] === 0 ? 0 : -l.valores[i] * (l.afectoIVA ? factorIVA : 1)
     })
-    e.meses.forEach((m, i) => {
-      const j = pp(m)
-      if (j >= 0 && l.afectoIVA) ivaCredito[i] += -l.valores[j] * (e.ivaPct / 100)
-    })
     if (valores.some((v) => v !== 0)) egresos.push({ clave: l.clave, nombre: l.nombre, grupo: l.grupo, valores })
   }
 
@@ -290,11 +291,13 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   }
 
   // ── Devolución de IVA exportador ──
-  const devolucion = e.meses.map((_, i) => {
-    if (e.devolucionIVAModo === 'fijo') return primerPpto >= 0 && i >= primerPpto ? e.devolucionIVAMensual : 0
-    const origen = i - e.rezagoIVAMeses
-    return origen >= 0 ? ivaCredito[origen] : 0
+  const devoluciones = devolucionesIVA({
+    ppto: e.ppto, ivaPct: e.ivaPct, mpPagadoHasta: e.mpPagadoHasta, modo: e.devolucionIVAModo, mensual: e.devolucionIVAMensual,
+    rezago: e.rezagoIVAMeses, pct: e.devolucionIVAPct ?? 100, periodos: e.periodosIVA ?? [],
   })
+  const credito = ivaCreditoPorMes(e.ppto, e.ivaPct, e.mpPagadoHasta)
+  e.meses.forEach((m, i) => (ivaCredito[i] = credito[m] ?? 0))
+  const devolucion = e.meses.map((m, i) => (i === 0 && e.primerPeriodoInformativo ? 0 : devoluciones.filter((d) => d.mes === m).reduce((s, d) => s + d.monto, 0)))
   if (devolucion.some((v) => v !== 0)) ingresos.push({ clave: 'devolucion-iva', nombre: 'Devolución de IVA', grupo: GRUPO_OTROS_INGRESOS, valores: devolucion })
 
   // Ajustes del usuario: reemplazan el valor proyectado de una línea en un mes.

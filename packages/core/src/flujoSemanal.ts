@@ -1,6 +1,7 @@
 // Flujo de caja semanal. El presupuesto da montos por mes; aquí cada monto se lleva a la fecha en que
 // se paga o se cobra (sueldos a fin de mes, Previred el 10, costos de un embarque en su ETD...) y
 // luego se reparte en semanas de 7 días desde la fecha de inicio.
+import { devolucionesIVA } from './iva'
 import { claveCobro, nombreCobro, sumarDias, type AlertaFlujo, type EntradaFlujo, type LineaFlujo, type ResultadoFlujo } from './flujo'
 import { GRUPO_DEUDAS, GRUPO_OTROS, GRUPO_OTROS_INGRESOS, GRUPO_REMUNERACIONES } from './presupuesto'
 
@@ -85,7 +86,6 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
     meses.forEach((ym, i) => {
       const neto = -l.valores[i]
       if (neto === 0) return
-      if (l.afectoIVA) ivaCredito[i] += neto * (e.ivaPct / 100)
       const etd = fechaDia(ym, p.diaETD)
       const fecha =
         l.tipo === 'MP' ? sumarDias(etd, -p.diasProduccionAntesETD)
@@ -125,10 +125,13 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   }
 
   // ── Devolución de IVA exportador ──
-  meses.forEach((ym, i) => {
-    const monto = e.devolucionIVAModo === 'fijo' ? e.devolucionIVAMensual : i - e.rezagoIVAMeses >= 0 ? ivaCredito[i - e.rezagoIVAMeses] : 0
-    if (monto !== 0) eventos.push({ fecha: fechaDia(ym, p.diaDevolucionIVA), grupo: 'INGRESO', clave: 'devolucion-iva', nombre: 'Devolución de IVA', monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
-  })
+  for (const d of devolucionesIVA({
+    ppto: e.ppto, ivaPct: e.ivaPct, mpPagadoHasta: e.mpPagadoHasta, modo: e.devolucionIVAModo, mensual: e.devolucionIVAMensual,
+    rezago: e.rezagoIVAMeses, pct: e.devolucionIVAPct ?? 100, periodos: e.periodosIVA ?? [],
+  })) {
+    if (!meses.includes(d.mes)) continue
+    eventos.push({ fecha: d.fecha ?? fechaDia(d.mes, p.diaDevolucionIVA), grupo: 'INGRESO', clave: 'devolucion-iva', nombre: 'Devolución de IVA', monto: d.monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
+  }
 
   // ── Ajustes del usuario: el monto del mes de una línea se reparte entre sus pagos en la misma proporción ──
   for (const a of e.ajustes ?? []) {

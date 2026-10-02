@@ -37,6 +37,7 @@ export const RECURSOS: Record<string, string> = {
   cuentasBancarias: 'CuentaBancaria',
   reglasCartola: 'ReglaCartola',
   movimientosBanco: 'MovimientoBanco',
+  periodosIVA: 'PeriodoIVA',
 }
 
 type Campo = Prisma.DMMF.Field
