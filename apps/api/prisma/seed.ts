@@ -26,6 +26,7 @@ import { cargarCreditosBancoestado } from './creditosBancoestado'
 import { cargarCreditosSeparados } from './creditosSeparados'
 import { cargarFacturasSII, retirarDuplicadoTPS } from './facturasSII'
 import { registrarMPDeSeptiembre } from './mpSeptiembreRegistrada'
+import { cargarMezclaDBC } from './mezclaDBC'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -89,6 +90,7 @@ async function main() {
     await cargarMPDeOctubre(prisma)
     await ajustarCamionesMinimos(prisma)
     await registrarMPDeSeptiembre(prisma)
+    await cargarMezclaDBC(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
   }
@@ -449,6 +451,7 @@ async function main() {
   await cargarMPDeOctubre(prisma)
   await ajustarCamionesMinimos(prisma)
   await registrarMPDeSeptiembre(prisma)
+  await cargarMezclaDBC(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
 

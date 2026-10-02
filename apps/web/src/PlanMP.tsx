@@ -9,6 +9,7 @@ interface ClienteMezcla {
   nombre: string
   origenId: number
   soloOrigen: boolean
+  tonPorCont: number
   contenedores: number[]
   desviados: Record<number, number[]>
 }
@@ -20,7 +21,7 @@ interface Respuesta {
   tonPorCamion: number
   mermaPct: number
   stockMinimoT: number
-  planes: (PlanMPOrigen & { previo: { mes: string; camiones: number; compradasT: number; stockInicioT: number; stockFinalT: number; valorStockFinalCLP: number } })[]
+  planes: (PlanMPOrigen & { consumoPorCliente: { clienteId: number; nombre: string; valores: number[] }[]; previo: { mes: string; camiones: number; compradasT: number; stockInicioT: number; stockFinalT: number; valorStockFinalCLP: number } })[]
 }
 
 const t = (x: number) => (Math.abs(x) < 0.0005 ? '0' : formatoNumero(x, 1))
@@ -64,11 +65,22 @@ export default function PlanMP() {
     }
   }
 
-  async function cambiarMezcla(clienteId: number, origenId: number, mes: string, valor: string) {
+  async function cambiarPrevio(origenId: number, valor: string) {
     const n = Number(valor)
     if (!Number.isInteger(n) || n < 0) return cargar()
     try {
-      await api(`/presupuesto/${versionId}/mezcla`, 'PUT', { clienteId, origenId, mes, contenedores: n })
+      await api(`/materia-prima/${versionId}/previo`, 'PUT', { origenId, camiones: n })
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    cargar()
+  }
+
+  async function cambiarMezcla(clienteId: number, origenId: number, mes: string, valor: string, tonPorCont: number) {
+    const ton = Number(valor.replace(',', '.'))
+    if (!Number.isFinite(ton) || ton < 0) return cargar()
+    try {
+      await api(`/presupuesto/${versionId}/mezcla`, 'PUT', { clienteId, origenId, mes, contenedores: Math.round((ton / tonPorCont) * 10000) / 10000 })
       cargar()
     } catch (e) {
       setError((e as Error).message)
@@ -110,7 +122,7 @@ export default function PlanMP() {
           <div className="border-b border-slate-200 px-3 py-2">
             <h3 className="font-semibold">Mezcla de origen por contenedor</h3>
             <p className="text-sm text-slate-500">
-              Tú decides qué contenedores se producen con la sal de otro origen para aprovechar los saldos. Anota cuántos contenedores del mes salen del otro origen; el resto sale del origen habitual.
+              Tú decides qué contenedores se producen con la sal de otro origen para aprovechar los saldos. Anota cuántas toneladas de materia prima del mes salen del otro origen (puede ser parte de un contenedor); el resto sale del origen habitual.
               {bloqueados.length > 0 && <> {bloqueados.map((c) => c.nombre).join(', ')} no se puede mezclar (solo {nombreOrigen(bloqueados[0].origenId)}, límite de arsénico).</>}
             </p>
           </div>
@@ -118,7 +130,7 @@ export default function PlanMP() {
             <table className="w-full min-w-max text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left">
-                  <th className="sticky left-0 z-10 bg-white px-3 py-2">Contenedores desde otro origen</th>
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2">Toneladas de MP desde otro origen</th>
                   {mesesMezcla.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
                 </tr>
               </thead>
@@ -129,15 +141,16 @@ export default function PlanMP() {
                       <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">{c.nombre} con {o.nombre} <span className="text-xs text-slate-400">(habitual: {nombreOrigen(c.origenId)})</span></td>
                       {mesesMezcla.map((m, i) => {
                         const k = c.desviados[o.id]?.[i] ?? 0
+                        const ton = Math.round(k * c.tonPorCont * 10) / 10
                         return (
                           <td key={m} className="px-1 py-1 text-right">
                             {c.contenedores[i] > 0 ? (
                               <input
                                 className="w-12 rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-right text-sky-900"
-                                defaultValue={k}
-                                key={m + k}
-                                title={`${c.contenedores[i]} contenedores en el mes`}
-                                onBlur={(e) => e.target.value !== String(k) && cambiarMezcla(c.clienteId, o.id, m, e.target.value)}
+                                defaultValue={ton}
+                                key={m + ton}
+                                title={`${c.contenedores[i]} contenedores en el mes; cada uno necesita ${formatoNumero(c.tonPorCont, 1)} t de materia prima. Anota las toneladas que salen de ${o.nombre} (equivale a ${formatoNumero(k, 2)} contenedor).`}
+                                onBlur={(e) => e.target.value !== String(ton) && cambiarMezcla(c.clienteId, o.id, m, e.target.value, c.tonPorCont)}
                                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                               />
                             ) : <span className="text-slate-300">–</span>}
@@ -173,7 +186,7 @@ export default function PlanMP() {
                 <thead>
                   <tr className="border-b border-slate-200 text-left">
                     <th className="sticky left-0 z-10 bg-white px-3 py-2">Toneladas</th>
-                    <th className="px-3 py-2 text-right font-medium text-slate-500" title="Ya ocurrió: camiones comprados y pagados">{nombreMes(p.previo.mes)} (real)</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-500" title="Ya ocurrió: camiones comprados y pagados">{nombreMes(p.previo.mes)} (real, editable)</th>
                     {p.meses.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
                   </tr>
                 </thead>
@@ -185,7 +198,16 @@ export default function PlanMP() {
                   </tr>
                   <tr className="border-b border-slate-100">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Camiones comprados <span className="text-xs text-slate-400">(editable)</span></td>
-                    <td className="bg-slate-50 px-3 py-1.5 text-right font-medium text-slate-700">{p.previo.camiones}</td>
+                    <td className="bg-slate-50 px-1 py-1 text-right">
+                      <input
+                        className="w-14 rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-right text-sky-900"
+                        defaultValue={p.previo.camiones}
+                        key={'previo' + p.previo.camiones}
+                        title="Camiones ya comprados en septiembre (28 t cada uno). Al subir el número se agregan camiones; al bajarlo se quitan."
+                        onBlur={(e) => e.target.value !== String(p.previo.camiones) && cambiarPrevio(p.origenId, e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                      />
+                    </td>
                     {p.camiones.map((k, i) => (
                       <td key={i} className="px-1 py-1 text-right">
                         <input
@@ -203,8 +225,15 @@ export default function PlanMP() {
                     <td className="bg-slate-50 px-3 py-1.5 text-right text-slate-600">{t(p.previo.compradasT)}</td>
                     {p.compradasT.map((x, i) => <td key={i} className="px-3 py-1.5 text-right">{t(x)}</td>)}
                   </tr>
+                  {p.consumoPorCliente.map((cl) => (
+                    <tr key={cl.clienteId} className="border-b border-slate-50 text-xs text-slate-500">
+                      <td className="sticky left-0 z-10 bg-white px-3 py-0.5 pl-6 whitespace-nowrap">Consumo de {cl.nombre}</td>
+                      <td className="bg-slate-50"></td>
+                      {cl.valores.map((x, i) => <td key={i} className="px-3 py-0.5 text-right">{x ? t(x) : ''}</td>)}
+                    </tr>
+                  ))}
                   <tr className="border-b border-slate-100">
-                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Consumo (kg vendidos ÷ (1 − merma))</td>
+                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">Consumo total (kg vendidos ÷ (1 − merma))</td>
                     <td className="bg-slate-50 px-3 py-1.5 text-right text-xs text-slate-400" title="El consumo de septiembre no se lleva en el plan">n/d</td>
                     {p.consumoT.map((x, i) => <td key={i} className="px-3 py-1.5 text-right">{x ? t(x) : ''}</td>)}
                   </tr>

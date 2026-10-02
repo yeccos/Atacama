@@ -367,7 +367,8 @@ model MezclaOrigen {
   clienteId    Int
   origenId     Int
   mes          DateTime
-  contenedores Int
+  // Puede ser fraccionario: un contenedor producido en parte con MP de otro origen (p. ej. 0,84 = 13,9 t de un saldo).
+  contenedores Float
 
   @@unique([versionId, clienteId, origenId, mes])
 }

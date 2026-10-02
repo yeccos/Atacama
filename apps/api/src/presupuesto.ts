@@ -9,6 +9,7 @@ import {
   listaMeses,
   PARAMS_SEMANAL_POR_DEFECTO,
   planificarMP,
+  contenedoresDeOrigen,
   resolverContenedores,
   resumirFlujoSemanal,
   sumarDias,
@@ -171,7 +172,7 @@ export function registrarPresupuesto(app: FastifyInstance) {
   app.put('/api/presupuesto/:id/mezcla', async (req, reply) => {
     const versionId = Number((req.params as any).id)
     const { clienteId, origenId, mes, contenedores } = (req.body ?? {}) as { clienteId?: number; origenId?: number; mes?: string; contenedores?: number }
-    if (!clienteId || !origenId || !mes || !/^\d{4}-\d{2}$/.test(mes) || !Number.isInteger(contenedores) || contenedores! < 0) {
+    if (!clienteId || !origenId || !mes || !/^\d{4}-\d{2}$/.test(mes) || !Number.isFinite(contenedores) || contenedores! < 0) {
       return reply.code(400).send({ error: 'Datos no válidos' })
     }
     const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
@@ -251,11 +252,18 @@ export function registrarPresupuesto(app: FastifyInstance) {
       meses: recortar(p.meses), camiones: recortar(p.camiones), compradasT: recortar(p.compradasT), consumoT: recortar(p.consumoT),
       stockInicioMesT: recortar(p.stockInicioMesT), stockFinalT: recortar(p.stockFinalT), ventaSinComprar: recortar(p.ventaSinComprar),
       camionesSugeridos: recortar(p.camionesSugeridos), valorStockFinalCLP: recortar(p.valorStockFinalCLP),
+      // De qué clientes sale el consumo de cada mes (toneladas de MP de este origen).
+      consumoPorCliente: entrada.clientes
+        .map((cl) => ({
+          clienteId: cl.id, nombre: cl.nombre,
+          valores: recortar(entrada.meses.map((_, i) => Math.round(((contenedoresDeOrigen(entrada, cl, p.origenId, i) * cl.kgPorCont) / 1000 / (1 - entrada.mermaPct / 100)) * 1000) / 1000)),
+        }))
+        .filter((x) => x.valores.some((v) => v > 0)),
     }))
     const clientesMezcla = entrada.clientes
       .filter((cl) => cl.origenId && (entrada.contenedores[cl.id] ?? []).some((k) => k > 0))
       .map((cl) => ({
-        clienteId: cl.id, nombre: cl.nombre, origenId: cl.origenId, soloOrigen: !!cl.soloOrigen,
+        clienteId: cl.id, nombre: cl.nombre, origenId: cl.origenId, soloOrigen: !!cl.soloOrigen, tonPorCont: cl.kgPorCont / 1000 / (1 - entrada.mermaPct / 100),
         contenedores: recortar(entrada.contenedores[cl.id] ?? []),
         desviados: Object.fromEntries(
           entrada.origenes.filter((o) => o.id !== cl.origenId).map((o) => [o.id, recortar(entrada.meses.map((_, i) => (entrada.mezcla?.[cl.id]?.[o.id]?.[i] ?? 0)))]),
@@ -265,6 +273,36 @@ export function registrarPresupuesto(app: FastifyInstance) {
       version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes,
       origenes: entrada.origenes.map((o) => ({ id: o.id, nombre: o.nombre })), clientesMezcla,
     }
+  })
+
+  /** Camiones comprados en el mes anterior al plan (septiembre): se agregan o se quitan camiones de 28 t en los camiones recibidos. */
+  app.put('/api/materia-prima/:id/previo', async (req, reply) => {
+    const versionId = Number((req.params as any).id)
+    const { origenId, camiones } = (req.body ?? {}) as { origenId?: number; camiones?: number }
+    if (!origenId || !Number.isInteger(camiones) || camiones! < 0) return reply.code(400).send({ error: 'Datos no válidos' })
+    const c = await cargarEntrada(versionId)
+    if (!c) return reply.code(404).send({ error: 'La versión no existe' })
+    const [a, mm] = c.entrada.meses[0].split('-').map(Number)
+    const anio = mm === 1 ? a - 1 : a
+    const mes = mm === 1 ? 12 : mm - 1
+    const ym = `${anio}-${String(mes).padStart(2, '0')}`
+    const delMes = (await prisma.camionMP.findMany({ where: { origenId }, include: { consumos: true }, orderBy: { id: 'asc' } })).filter((l) => iso(l.fecha).slice(0, 7) === ym && l.guia !== 'Saldo inicial')
+    if (camiones! > delMes.length) {
+      const ultimoDia = new Date(Date.UTC(anio, mes, 0))
+      for (let i = delMes.length; i < camiones!; i++) {
+        await prisma.camionMP.create({ data: { origenId, fecha: ultimoDia, guia: 'Comprado en el mes (editable)', toneladasFacturadas: c.entrada.tonPorCamion, toneladasRecibidas: c.entrada.tonPorCamion, nota: 'Agregado a mano desde el plan de MP.' } })
+      }
+    } else {
+      let quitar = delMes.length - camiones!
+      for (const l of [...delMes].reverse()) {
+        if (quitar === 0) break
+        if (l.consumos.length) return reply.code(400).send({ error: 'Ese camión ya tiene consumos asociados y no se puede quitar.' })
+        await prisma.camionMP.delete({ where: { id: l.id } })
+        quitar--
+      }
+    }
+    await auditar(req.usuario, 'CamionMP', null, 'MODIFICAR', { camiones: delMes.length }, { camiones, origenId, mes: ym })
+    return { ok: true }
   })
 
   /** Ajustes del usuario sobre la proyección: lista, cambiar (monto) o volver al valor proyectado (monto nulo). */
