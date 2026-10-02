@@ -13,8 +13,16 @@ export interface OrigenIn {
   nombre: string
   usdPorTon: number
   fleteUsdPorTon: number
+  /** Compra en pesos (neto): valor de un camión completo y flete de un camión. Si hay valor del camión, reemplaza al precio en dólares. */
+  valorCamionCLP?: number
+  fleteCamionCLP?: number
   /** Días de pago del proveedor de esta materia prima. */
   diasPago?: number
+}
+
+/** Costo de una tonelada de materia prima de este origen, en pesos y neto: (valor del camión + flete) ÷ toneladas por camión; si no hay valor en pesos, el precio en dólares × dólar. */
+export function costoTonOrigenCLP(o: OrigenIn, tc: number, tonPorCamion: number): number {
+  return (o.valorCamionCLP ?? 0) > 0 ? ((o.valorCamionCLP ?? 0) + (o.fleteCamionCLP ?? 0)) / tonPorCamion : (o.usdPorTon + o.fleteUsdPorTon) * tc
 }
 
 export interface ClienteIn {
@@ -242,12 +250,14 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     const valores = e.meses.map((_, i) => {
       const kg = sum(e.clientes.map((c) => contenedoresDeOrigen(e, c, o.id, i) * c.kgPorCont))
       const ton = kg / 1000 / (1 - e.mermaPct / 100)
-      return -ton * (o.usdPorTon + o.fleteUsdPorTon) * e.tc
+      return -ton * costoTonOrigenCLP(o, e.tc, e.tonPorCamion)
     })
     if (valores.some((v) => v !== 0)) {
       egresos.push({
         clave: 'mp-' + o.id, grupo: GRUPO_MP, nombre: `MP ${o.nombre}`, valores, afectoIVA: true, tipo: 'MP', editarEn: 'mp', diasPago: o.diasPago,
-        formula: `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (US$${n0(o.usdPorTon)} + US$${n0(o.fleteUsdPorTon)} de flete) × dólar`,
+        formula: (o.valorCamionCLP ?? 0) > 0
+          ? `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (camión de $${n0(o.valorCamionCLP!)} + flete de $${n0(o.fleteCamionCLP ?? 0)}) ÷ ${n0(e.tonPorCamion)} t`
+          : `Toneladas de materia prima del mes (kg vendidos ÷ (1 − ${n0(e.mermaPct)}% de merma)) × (US$${n0(o.usdPorTon)} + US$${n0(o.fleteUsdPorTon)} de flete) × dólar`,
       })
     }
   }

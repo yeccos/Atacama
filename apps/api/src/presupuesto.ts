@@ -110,7 +110,7 @@ export async function cargarEntrada(versionId: number, op: Opciones = {}) {
     tonPorCamion: par.numero('toneladasPorCamion', 28),
     stockInicialTon: recibido - consumido,
     clientes,
-    origenes: origenes.map((o) => ({ id: o.id, nombre: o.nombre, usdPorTon: num(o.usdPorTon), fleteUsdPorTon: num(o.fleteUsdPorTon), diasPago: o.proveedor?.diasPago ?? 0 })),
+    origenes: origenes.map((o) => ({ id: o.id, nombre: o.nombre, usdPorTon: num(o.usdPorTon), fleteUsdPorTon: num(o.fleteUsdPorTon), valorCamionCLP: o.valorCamionCLP ?? undefined, fleteCamionCLP: o.fleteCamionCLP ?? undefined, diasPago: o.proveedor?.diasPago ?? 0 })),
     gastos: gastosDb.map((g) => ({
       id: g.id, nombre: g.nombre, driver: g.driver, moneda: g.moneda,
       valorFijo: num(g.valorFijo), valorVariable: num(g.valorVariable), mesEspecifico: g.mesEspecifico,

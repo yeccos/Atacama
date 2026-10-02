@@ -119,6 +119,9 @@ model OrigenMP {
   proveedor      Proveedor? @relation(fields: [proveedorId], references: [id])
   usdPorTon      Decimal
   fleteUsdPorTon Decimal @default(0)
+  // Compra en pesos (neto): valor de un camión de 28 t y flete de un camión. Si hay valor del camión, manda sobre los dólares.
+  valorCamionCLP Int?
+  fleteCamionCLP Int?
   nota           String?
 
   clientes Cliente[]
