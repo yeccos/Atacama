@@ -160,12 +160,15 @@ export default function Flujo() {
           ayuda="La fecha de cada cobro sale de las fechas del embarque (pantalla Embarques en curso) y los días de su forma de pago. Aquí solo ajustas los días de atraso, y el flujo se recalcula al instante. Los cobros en estado COBRADO ya no entran al flujo."
           alCambiar={cargar}
           columnas={[
+            { campo: 'cliente', titulo: 'Cliente', ancho: 230, soloLectura: true },
             { campo: 'embarqueId', titulo: 'Embarque N°', tipo: 'entero', ancho: 130 },
             { campo: 'evento', titulo: 'Hito' },
             { campo: 'pct', titulo: '%', tipo: 'decimal', ancho: 90 },
             { campo: 'montoUsdCent', titulo: 'Monto US$', tipo: 'usd' },
             { campo: 'fechaEsperada', titulo: 'Fecha base', tipo: 'fecha' },
             { campo: 'diasAtraso', titulo: 'Días de atraso', tipo: 'entero', defecto: '0' },
+            { campo: 'fechaCobro', titulo: 'Fecha de cobro', tipo: 'fecha', ancho: 140 },
+            { campo: 'clpRecibido', titulo: 'Pesos recibidos', tipo: 'entero', ancho: 150 },
             { campo: 'estado', titulo: 'Estado', tipo: 'opcion', opciones: ['PENDIENTE', 'PARCIAL', 'COBRADO'], defecto: 'PENDIENTE' },
           ]}
         />

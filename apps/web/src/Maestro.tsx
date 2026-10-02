@@ -25,6 +25,8 @@ export interface Col {
   refFiltro?: Record<string, string>
   ancho?: number
   defecto?: unknown
+  /** Dato que se muestra pero no se edita (viene calculado desde otra tabla). */
+  soloLectura?: boolean
 }
 
 export interface ConfigMaestro {
@@ -142,7 +144,7 @@ export default function Maestro({ recurso, titulo, ayuda, columnas, fijo, alSele
         const def: ColDef = {
           field: c.campo,
           headerName: c.titulo,
-          editable: true,
+          editable: !c.soloLectura,
           width: c.ancho,
           flex: c.ancho ? undefined : 1,
           minWidth: 90,

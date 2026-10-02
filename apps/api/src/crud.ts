@@ -144,7 +144,14 @@ export function registrarCrud(app: FastifyInstance) {
     const d = delegado((req.params as any).recurso)
     if (!d) return reply.code(404).send({ error: 'Recurso desconocido' })
     try {
-      return await d.tabla.findMany({ where: filtro(d.modelo, req.query as any), orderBy: { id: 'asc' } })
+      const filas = await d.tabla.findMany({ where: filtro(d.modelo, req.query as any), orderBy: { id: 'asc' } })
+      // Los cobros de embarques muestran de qué cliente son (dato de lectura que viene del embarque).
+      if (d.modelo === 'HitoCobro') {
+        const emb = await prisma.embarque.findMany({ select: { id: true, cliente: { select: { nombre: true } } } })
+        const clientes = new Map(emb.map((e) => [e.id, e.cliente.nombre]))
+        return filas.map((h: any) => ({ ...h, cliente: clientes.get(h.embarqueId) ?? null }))
+      }
+      return filas
     } catch (e) {
       const m = mensajeError(e)
       return reply.code(m.codigo).send({ error: m.error })
