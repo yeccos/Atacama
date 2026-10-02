@@ -382,6 +382,13 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO')
     const ref = e.fETDReal ?? e.fETDEst ?? pendientes.find((h) => h.fechaEsperada)?.fechaEsperada
     if (ref) cubiertos.add(`${e.clienteId}|${iso(ref).slice(0, 7)}`)
+    // Lo ya cobrado: se muestra el día en que llegó, con los pesos reales de la cartola cuando se conocen.
+    for (const h of e.hitos.filter((x) => x.estado === 'COBRADO' && (x.fechaCobro ?? x.fechaEsperada))) {
+      cobros.push({
+        clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: iso((h.fechaCobro ?? h.fechaEsperada)!), usdCent: h.montoUsdCent,
+        origen: 'REAL', evento: h.evento, pct: num(h.pct), clp: h.clpRecibido ?? undefined, cobrado: true,
+      })
+    }
     for (const h of pendientes) {
       const fecha = fechaDelHito(e, h, e.cliente.destino?.diasTransito ?? 20, e.cliente.hitos)
       if (!fecha) continue
@@ -429,6 +436,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     rezagoIVAMeses: par.numero('rezagoIVAMeses', 1),
     mesesSinFin: par.numero('mesesCuotaSinFin', 12),
     saldoMinimo: par.numero('saldoMinimoCaja', 0),
+    primerPeriodoInformativo: true,
     mpPagadoHasta: par.texto('mpPagadaHasta', '') || undefined,
   }
 

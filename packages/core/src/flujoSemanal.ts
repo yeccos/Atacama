@@ -74,7 +74,7 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   for (const c of e.cobros) {
     eventos.push({
       fecha: c.fecha, grupo: 'INGRESO', clave: claveCobro(c), nombre: nombreCobro(c),
-      monto: (c.usdCent / 100) * e.tc, esCobro: true, grupoEgreso: c.nombre,
+      monto: c.clp ?? (c.usdCent / 100) * e.tc, esCobro: !c.cobrado, grupoEgreso: c.nombre,
     })
   }
 
@@ -157,11 +157,12 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   const flujoNeto = totalIngresos.map((v, i) => v - totalEgresos[i])
   const saldoFinal: number[] = []
   let saldo = e.saldoInicial
-  for (let i = 0; i < nP; i++) saldoFinal.push((saldo += flujoNeto[i]))
+  for (let i = 0; i < nP; i++) saldoFinal.push((saldo += i === 0 && e.primerPeriodoInformativo ? 0 : flujoNeto[i]))
 
   const claves = periodos.map((_, i) => 'P' + i)
   const alertas: AlertaFlujo[] = []
   saldoFinal.forEach((s, i) => {
+    if (i === 0 && e.primerPeriodoInformativo) return
     if (s < 0) alertas.push({ mes: claves[i], tipo: 'SALDO_NEGATIVO', mensaje: `Saldo negativo en el período ${i}` })
     else if (s < e.saldoMinimo) alertas.push({ mes: claves[i], tipo: 'SALDO_BAJO', mensaje: `Saldo bajo el mínimo en el período ${i}` })
   })

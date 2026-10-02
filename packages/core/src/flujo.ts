@@ -60,6 +60,10 @@ export interface CobroFlujo {
   /** Hito del que viene (OC, BL, ETA...) y su porcentaje: el flujo muestra una línea por hito. */
   evento?: string
   pct?: number
+  /** Pesos realmente recibidos (cobros ya hechos, según la cartola); si no está, se calcula con el dólar del escenario. */
+  clp?: number
+  /** Ya se cobró: queda en su fecha real (cierre), no se corre a la primera semana como un cobro atrasado. */
+  cobrado?: boolean
 }
 
 const ETIQUETA_EVENTO: Record<string, string> = {
@@ -137,6 +141,8 @@ export interface DeudaFlujo {
 }
 
 export interface EntradaFlujo {
+  /** La primera columna (el cierre anterior al saldo inicial) se muestra pero no mueve el saldo: ya está en el saldo del banco. */
+  primerPeriodoInformativo?: boolean
   ppto: ResultadoPpto
   tc: number
   /** Meses del flujo ('aaaa-mm'). Puede incluir meses anteriores al presupuesto (p. ej. la última semana de septiembre). */
@@ -215,7 +221,7 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
       porCliente.set(clave, l)
       ingresos.push(l)
     }
-    porCliente.get(clave)!.valores[i] += (c.usdCent / 100) * e.tc
+    porCliente.get(clave)!.valores[i] += c.clp ?? (c.usdCent / 100) * e.tc
   }
 
   // ── Costos del presupuesto, con IVA donde corresponde ──
@@ -283,10 +289,11 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   const flujoNeto = totalIngresos.map((v, i) => v - totalEgresos[i])
   const saldoFinal: number[] = []
   let saldo = e.saldoInicial
-  for (let i = 0; i < n; i++) saldoFinal.push((saldo += flujoNeto[i]))
+  for (let i = 0; i < n; i++) saldoFinal.push((saldo += i === 0 && e.primerPeriodoInformativo ? 0 : flujoNeto[i]))
 
   const alertas: AlertaFlujo[] = []
   saldoFinal.forEach((s, i) => {
+    if (i === 0 && e.primerPeriodoInformativo) return
     if (s < 0) alertas.push({ mes: e.meses[i], tipo: 'SALDO_NEGATIVO', mensaje: `Saldo negativo a fin de ${e.meses[i]}` })
     else if (s < e.saldoMinimo) alertas.push({ mes: e.meses[i], tipo: 'SALDO_BAJO', mensaje: `Saldo bajo el mínimo a fin de ${e.meses[i]}` })
   })

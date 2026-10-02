@@ -146,7 +146,7 @@ export default function Flujo() {
             </table>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            El primer mes es la última semana de septiembre (partidas manuales). Cobros al tipo de cambio del presupuesto; devolución de IVA:{' '}
+            La columna de septiembre es informativa: lo que muestra ya está incluido en el saldo del banco con que parte el flujo. Cobros al tipo de cambio del presupuesto; devolución de IVA:{' '}
             {datos?.modoIVA === 'fijo' ? 'monto fijo mensual (parámetro)' : 'calculada sobre el IVA crédito'}. Las compras de materia prima se pagan cuando se consumen
             (la fecha real de pago llega con las facturas, Fase 4).
           </p>

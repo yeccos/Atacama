@@ -431,6 +431,9 @@ model HitoCobro {
   fechaEsperada DateTime?
   diasAtraso    Int      @default(0)
   estado        String   @default("PENDIENTE") // PENDIENTE | PARCIAL | COBRADO
+  // Cuando ya se cobró: el día en que llegó la plata y, si se conoce, los pesos que dejó (según la cartola).
+  fechaCobro    DateTime?
+  clpRecibido   Int?
 
   cobros CobroCliente[]
 }
