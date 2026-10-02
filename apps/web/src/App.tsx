@@ -7,6 +7,7 @@ import Facturas from './Facturas'
 import FlujoPagina from './FlujoPagina'
 import Maestro from './Maestro'
 import PlanMP from './PlanMP'
+import Respaldos from './Respaldos'
 import Presupuesto from './Presupuesto'
 import { PAGINAS, type Pagina } from './paginas'
 
@@ -189,6 +190,7 @@ const ESPECIALES = [
   { id: 'incoterms', menu: 'Incoterms', grupo: 'Comercial' },
   { id: 'facturas', menu: 'Facturas recibidas', grupo: 'Proveedores' },
   { id: 'auditoria', menu: 'Auditoría', grupo: 'Configuración' },
+  { id: 'respaldos', menu: 'Respaldos', grupo: 'Configuración' },
 ]
 
 export default function App() {
@@ -240,6 +242,7 @@ export default function App() {
         {actual === 'incoterms' && <Incoterms />}
         {actual === 'facturas' && <Facturas />}
         {actual === 'auditoria' && <Auditoria />}
+        {actual === 'respaldos' && <Respaldos />}
         {pagina?.id === 'mp' && <PlanMP />}
         {pagina?.id === 'cartolas' && <Cartolas />}
         {pagina && <PaginaMaestro key={pagina.id} pagina={pagina} />}

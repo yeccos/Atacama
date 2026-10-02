@@ -11,3 +11,6 @@ facturas/*
 
 cartolas/*
 !cartolas/LEEME.txt
+
+apps/api/respaldos/
+respaldos/

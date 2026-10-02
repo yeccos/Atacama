@@ -6,6 +6,7 @@ import { registrarAdvertencias } from './advertencias'
 import { registrarAuth } from './auth'
 import { registrarBancos } from './bancos'
 import { registrarDocumentos } from './documentos'
+import { registrarRespaldos } from './respaldos'
 import { registrarCrud } from './crud'
 import { registrarPresupuesto } from './presupuesto'
 
@@ -21,6 +22,7 @@ registrarAdvertencias(app)
 registrarPresupuesto(app)
 registrarBancos(app)
 registrarDocumentos(app)
+registrarRespaldos(app)
 
 // En producción el mismo servidor entrega la web ya compilada (apps/web/dist).
 const web = fileURLToPath(new URL('../../web/dist', import.meta.url))
