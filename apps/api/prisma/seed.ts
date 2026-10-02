@@ -22,6 +22,7 @@ import { cargarIVACalculado } from './ivaCalculado'
 import { cargarSaldoCajaOctubre } from './saldoCajaOctubre'
 import { cargarLineasFacturas } from './lineasFacturas'
 import { retirarGuiasDespacho } from './sinGuias'
+import { cargarCreditosBancoestado } from './creditosBancoestado'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -75,6 +76,7 @@ async function main() {
     await cargarSaldoCajaOctubre(prisma)
     await cargarLineasFacturas(prisma)
     await retirarGuiasDespacho(prisma)
+    await cargarCreditosBancoestado(prisma)
     await cargarMPDeSeptiembre(prisma)
     await quitarCuotasRossiServitral(prisma)
     await cargarBonoDescarga(prisma)
@@ -430,6 +432,7 @@ async function main() {
   await cargarSaldoCajaOctubre(prisma)
   await cargarLineasFacturas(prisma)
   await retirarGuiasDespacho(prisma)
+  await cargarCreditosBancoestado(prisma)
   await cargarMPDeSeptiembre(prisma)
   await quitarCuotasRossiServitral(prisma)
   await cargarBonoDescarga(prisma)
