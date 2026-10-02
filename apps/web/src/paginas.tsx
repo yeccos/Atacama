@@ -139,8 +139,7 @@ export const PAGINAS: Pagina[] = [
       columnas: [
         { campo: 'nombre', titulo: 'Origen' },
         { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores' },
-        { campo: 'valorCamionCLP', titulo: 'Valor del camión (28 t, neto)', tipo: 'monto', ancho: 210 },
-        { campo: 'fleteCamionCLP', titulo: 'Flete por camión (neto)', tipo: 'monto', ancho: 190 },
+        { campo: 'valorCamionCLP', titulo: 'Costo por camión con flete (28 t, neto)', tipo: 'monto', ancho: 260 },
         { campo: 'nota', titulo: 'Nota', ancho: 320 },
       ],
     },
