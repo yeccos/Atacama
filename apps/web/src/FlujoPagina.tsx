@@ -162,7 +162,7 @@ function Semanal() {
           </div>
           <p className="mt-2 text-xs text-slate-500">
             Cada monto cae en la fecha en que se paga o se cobra: sueldos a fin de mes, Previred y gastos fijos el 10, costos de cada embarque en su ETD (la materia prima 7 días antes),
-            devolución de IVA el 20, cobros en la fecha de cada hito. La columna Cierre es informativa (lo ya ocurrido hasta el 30-09): no mueve el saldo, que parte con el del banco. Esos días se cambian en Indicadores y parámetros. El cuadro naranja marca la semana de menor saldo.
+            devolución de IVA el 25, cobros en la fecha de cada hito. La columna Cierre es informativa (lo ya ocurrido hasta el 30-09): no mueve el saldo, que parte con el del banco. Esos días se cambian en Indicadores y parámetros. El cuadro naranja marca la semana de menor saldo.
           </p>
         </>
       )}

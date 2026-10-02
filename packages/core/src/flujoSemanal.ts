@@ -21,7 +21,7 @@ export const PARAMS_SEMANAL_POR_DEFECTO: ParamsSemanal = {
   diaPagoFijos: 10,
   diaPagoPrevired: 10,
   diaPagoCuotas: 10,
-  diaDevolucionIVA: 20,
+  diaDevolucionIVA: 25,
   diaETD: 15,
   diasProduccionAntesETD: 7,
 }

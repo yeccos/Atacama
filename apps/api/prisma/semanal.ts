@@ -15,7 +15,7 @@ export async function completarSemanalYDBC(prisma: PrismaClient) {
     ['diaPagoFijos', '10', 'Flujo semanal: día del mes en que se pagan los gastos fijos'],
     ['diaPagoPrevired', '10', 'Flujo semanal: día del mes en que se paga Previred'],
     ['diaPagoCuotas', '10', 'Flujo semanal: día del mes en que se pagan las cuotas de deudas'],
-    ['diaDevolucionIVA', '20', 'Flujo semanal: día del mes en que llega la devolución de IVA'],
+    ['diaDevolucionIVA', '25', 'Flujo semanal: día del mes en que llega la devolución de IVA'],
   ]
   for (const [clave, valor, descripcion] of parametros) {
     if (!(await prisma.parametro.findUnique({ where: { clave } }))) await prisma.parametro.create({ data: { clave, valor, descripcion } })
