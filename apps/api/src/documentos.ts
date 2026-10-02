@@ -6,6 +6,17 @@ import { prisma } from './db'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const SUPUESTO = 'Supuesto'
+
+const GENERICAS = new Set(['COMERCIAL', 'COMERCIALIZADORA', 'LTDA', 'LIMITADA', 'SPA', 'SA', 'CIA', 'DE', 'Y', 'INVERSIONES', 'SERVICIOS', 'CHILE', 'DISTRIBUIDORA', 'EMPRESA', 'SOCIEDAD', 'AG', 'TRANSPORTES', 'TRANSPORTE'])
+const palabras = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().split(/[^A-Z0-9]+/).filter((w) => w.length >= 3 && !GENERICAS.has(w))
+/** El nombre del proveedor y el del destinatario de la cartola comparten alguna palabra propia (no "comercial", "ltda", etc.). */
+const mismoNombre = (a: string, b: string | null) => {
+  if (!b) return false
+  const A = palabras(a)
+  const B = palabras(b)
+  return A.some((x) => B.some((y) => x === y || (x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)))))
+}
 const AVISO = 'Aviso'
 
 /** Positivo para facturas y notas de débito, negativo para notas de crédito. */
@@ -40,6 +51,19 @@ export async function documentosConSaldo() {
     include: { proveedor: true, aplicaciones: { include: { pago: true } } },
     orderBy: [{ emision: 'desc' }, { id: 'desc' }],
   })
+  const conPdf = new Set((await prisma.documentoArchivo.findMany({ select: { documentoId: true } })).map((x) => x.documentoId))
+  const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 }, cuenta: { moneda: 'CLP' } }, orderBy: { fecha: 'asc' } })
+  const hastaCartola = movs.length ? iso(movs[movs.length - 1].fecha) : null
+  const peso = (n: number) => '$' + n.toLocaleString('es-CL')
+  /** Por qué una factura figura como pagada "supuesta": qué se buscó en la cartola y qué se encontró. */
+  const motivoSupuesto = (d: (typeof docs)[number]) => {
+    const nombre = compacto(d.proveedor.nombre)
+    const desde = d.emision.getTime() - 10 * 86400000
+    const delProv = movs.filter((x) => x.fecha.getTime() >= desde && (x.proveedorId === d.proveedorId || mismoNombre(d.proveedor.nombre, x.contraparte)))
+    if (!delProv.length) return `No hay ningún pago a ${d.proveedor.nombre} en la cartola desde ${iso(d.emision)} (la cartola llega hasta ${hastaCartola ?? '—'}). Puede estar pagada con otro medio o aún no pagada.`
+    const cerca = delProv.slice(0, 3).map((x) => `${iso(x.fecha)} ${peso(x.cargo)}${x.nota ? ' «' + x.nota + '»' : ''}`).join('; ')
+    return `Hay pagos a ${d.proveedor.nombre}, pero ninguno por ${peso(d.total)} (${cerca}). Pueden cubrir otras facturas o esta en partes: revisa que el monto calce.`
+  }
   return docs.map((d) => {
     const pagado = d.aplicaciones.reduce((s, a) => s + a.monto, 0)
     const supuesto = d.aplicaciones.length > 0 && d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
@@ -47,9 +71,9 @@ export async function documentosConSaldo() {
     const saldo = total - signo(d.tipo) * pagado
     const estado: EstadoDoc = Math.abs(saldo) < 1 ? (supuesto ? 'SUPUESTA' : 'PAGADA') : pagado > 0 ? 'PARCIAL' : 'PENDIENTE'
     return {
-      id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, tipo: d.tipo, folio: d.folio,
+      id: d.id, proveedorId: d.proveedorId, proveedor: d.proveedor.nombre, proveedorRut: d.proveedor.rut, tienePdf: conPdf.has(d.id), tipo: d.tipo, folio: d.folio,
       emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
-      total, pagado: signo(d.tipo) * pagado, saldo, estado, aviso: (d.aplicaciones.find((a) => (a.pago.nota ?? '').startsWith(AVISO))?.pago.nota ?? null) as string | null, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
+      total, pagado: signo(d.tipo) * pagado, saldo, estado, motivo: (supuesto ? motivoSupuesto(d) : null) as string | null, aviso: (d.aplicaciones.find((a) => (a.pago.nota ?? '').startsWith(AVISO))?.pago.nota ?? null) as string | null, enPresupuesto: enPresupuesto.has(d.proveedorId), grupo: enPresupuesto.get(d.proveedorId) ?? null,
     }
   })
 }
@@ -65,6 +89,45 @@ export function registrarDocumentos(app: FastifyInstance) {
       if (d.emision < p.masAntiguo) p.masAntiguo = d.emision
     }
     return { documentos: docs, saldosPorProveedor: Object.values(porProveedor).sort((a, b) => b.saldo - a.saldo) }
+  })
+
+  // Detalle de una factura: sus montos, los pagos aplicados y el movimiento de la cartola de cada uno.
+  app.get('/api/documentos/:id/detalle', async (req, reply) => {
+    const id = Number((req.params as any).id)
+    const d = await prisma.documento.findUnique({ where: { id }, include: { proveedor: true, aplicaciones: { include: { pago: true } }, archivo: { select: { nombre: true } } } })
+    if (!d) return reply.code(404).send({ error: 'La factura no existe' })
+    const resumen = (await documentosConSaldo()).find((x) => x.id === id)
+    const pagos = []
+    for (const a of d.aplicaciones) {
+      const concs = await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO', destinoId: a.pagoId } })
+      const movs = await prisma.movimientoBanco.findMany({ where: { id: { in: concs.map((c) => c.movimientoId) } }, include: { cuenta: true } })
+      pagos.push({
+        fecha: iso(a.pago.fecha), monto: a.monto, nota: a.pago.nota,
+        movimientos: movs.map((m) => ({ fecha: iso(m.fecha), cargo: m.cargo, cuenta: m.cuenta.nombre, contraparte: m.contraparte, glosa: m.glosa, detalle: m.nota })),
+      })
+    }
+    return {
+      proveedor: d.proveedor.nombre, rut: d.proveedor.rut, tipo: d.tipo, folio: d.folio, emision: iso(d.emision), vencimiento: d.vencimiento ? iso(d.vencimiento) : null,
+      neto: d.neto, exento: d.exento, iva: d.iva, total: d.total, nota: d.nota, estado: resumen?.estado, saldo: resumen?.saldo, motivo: resumen?.motivo ?? null,
+      aviso: resumen?.aviso ?? null, grupo: resumen?.grupo ?? null, pdf: d.archivo?.nombre ?? null, pagos,
+    }
+  })
+
+  // El PDF de la factura: se sube desde la pantalla (base64) y se abre desde ella.
+  app.post('/api/documentos/:id/pdf', { bodyLimit: 12 * 1024 * 1024 }, async (req, reply) => {
+    const id = Number((req.params as any).id)
+    const { nombre, base64 } = (req.body ?? {}) as { nombre?: string; base64?: string }
+    if (!base64) return reply.code(400).send({ error: 'Falta el archivo' })
+    const datos = Buffer.from(base64, 'base64')
+    if (datos.subarray(0, 4).toString() !== '%PDF') return reply.code(400).send({ error: 'El archivo no es un PDF' })
+    if (!(await prisma.documento.findUnique({ where: { id } }))) return reply.code(404).send({ error: 'La factura no existe' })
+    await prisma.documentoArchivo.upsert({ where: { documentoId: id }, create: { documentoId: id, nombre: nombre ?? 'factura.pdf', datos }, update: { nombre: nombre ?? 'factura.pdf', datos } })
+    return { ok: true }
+  })
+  app.get('/api/documentos/:id/pdf', async (req, reply) => {
+    const a = await prisma.documentoArchivo.findUnique({ where: { documentoId: Number((req.params as any).id) } })
+    if (!a) return reply.code(404).send({ error: 'Esta factura no tiene PDF adjunto' })
+    return reply.header('Content-Type', 'application/pdf').header('Content-Disposition', 'inline').send(Buffer.from(a.datos))
   })
 
   // Marcar una factura como pagada (con un pago por su saldo) o dejarla pendiente (se borran sus pagos supuestos).
@@ -89,27 +152,33 @@ export function registrarDocumentos(app: FastifyInstance) {
   // Cruza las facturas pendientes (o solo supuestas) con los pagos de la cartola: mismo monto y mismo proveedor.
   app.post('/api/documentos/conciliar', async (req) => {
     const docs = await prisma.documento.findMany({ where: { tipo: { not: 'NOTA_CREDITO' } }, include: { proveedor: true, aplicaciones: { include: { pago: true } } } })
-    const usados = new Set((await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO' } })).map((c) => c.movimientoId))
+    const concs = await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO' } })
+    const usados = new Set(concs.map((c) => c.movimientoId))
     const movs = await prisma.movimientoBanco.findMany({ where: { cargo: { gt: 0 }, cuenta: { moneda: 'CLP' } }, orderBy: { fecha: 'asc' } })
+    // Lo que queda de cada pago sin asignar a una factura (un pago puede cubrir varias facturas).
+    const resto = new Map(movs.map((x) => [x.id, x.cargo - concs.filter((c) => c.movimientoId === x.id).reduce((a, c) => a + c.monto, 0)]))
     let verificadas = 0
     let nuevas = 0
     let porDetalle = 0
     const dudosas: string[] = []
     // 1) Por el detalle que escribió quien pagó ("Fact 129683"): el número de factura manda aunque el monto no calce
     //    (un pago puede cubrir varias facturas o una parte).
-    const folioDe = (nota: string | null) => [...(nota ?? '').matchAll(/\b(?:fac|fact|factura|fc)\w*\.?\s*(?:n[°º]?\s*)?(\d{2,9})/gi)].map((x) => x[1])
+    // Acepta varios números seguidos: "Fac 89524 89755", "Fac 114694 y 114809".
+    const folioDe = (nota: string | null) =>
+      [...(nota ?? '').matchAll(/\b(?:fac|fact|factura|fc)\w*\.?\s*(?:n[°º]?\s*)?(\d{2,9}(?:\s*(?:y|e|,)?\s*\d{2,9}\b)*)/gi)].flatMap((x) => x[1].split(/\D+/).filter(Boolean))
     for (const d of docs) {
       const yaPagado = d.aplicaciones.length > 0 && !d.aplicaciones.every((a) => (a.pago.nota ?? '').startsWith(SUPUESTO))
       if (yaPagado) continue
       const nombre = compacto(d.proveedor.nombre)
       const m = movs.find(
         (x) =>
-          !usados.has(x.id) && folioDe(x.nota).includes(d.folio) &&
-          (x.proveedorId === d.proveedorId || (x.contraparte && (compacto(x.contraparte).includes(nombre) || nombre.includes(compacto(x.contraparte).slice(0, 8))))),
+          (resto.get(x.id) ?? 0) > 0 && folioDe(x.nota).includes(d.folio) &&
+          (x.proveedorId === d.proveedorId || mismoNombre(d.proveedor.nombre, x.contraparte)),
       )
       if (!m) continue
       for (const a of d.aplicaciones) await prisma.pago.delete({ where: { id: a.pagoId } })
-      const monto = Math.min(d.total, m.cargo)
+      const monto = Math.min(d.total, resto.get(m.id)!)
+      resto.set(m.id, resto.get(m.id)! - monto)
       const pago = await prisma.pago.create({ data: { proveedorId: d.proveedorId, fecha: m.fecha, monto, cuentaBancariaId: m.cuentaId, nota: `Verificado con el detalle de la transferencia: ${m.nota}` } })
       await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: d.id, monto } })
       await prisma.conciliacion.create({ data: { movimientoId: m.id, tipoDestino: 'PAGO', destinoId: pago.id, monto } })
@@ -124,8 +193,8 @@ export function registrarDocumentos(app: FastifyInstance) {
       const pagadoReal = d.aplicaciones.length > 0 && !supuesto
       if (pagadoReal) continue
       const nombre = compacto(d.proveedor.nombre)
-      const candidatos = movs.filter((m) => m.cargo === d.total && !usados.has(m.id) && m.fecha.getTime() >= d.emision.getTime() - 10 * 86400000)
-      const delProveedor = candidatos.filter((m) => m.proveedorId === d.proveedorId || (m.contraparte && (compacto(m.contraparte).includes(nombre) || nombre.includes(compacto(m.contraparte)))))
+      const candidatos = movs.filter((m) => Math.abs(m.cargo - d.total) <= 2 && !usados.has(m.id) && m.fecha.getTime() >= d.emision.getTime() - 10 * 86400000)
+      const delProveedor = candidatos.filter((m) => m.proveedorId === d.proveedorId || mismoNombre(d.proveedor.nombre, m.contraparte))
       let m: (typeof movs)[number] | undefined = delProveedor[0] ?? (candidatos.length === 1 && !candidatos[0].proveedorId ? candidatos[0] : undefined)
       // Materia prima: el pago puede diferir un poco de la factura (anticipos, ajustes); se acepta hasta 1,5% con el mismo proveedor, cerca de la fecha.
       let aproximado = false
@@ -172,7 +241,7 @@ export function registrarDocumentos(app: FastifyInstance) {
     // 3a) Dos pagos al mismo proveedor que suman (casi) la factura.
     for (const d of pendientesReales) {
       const nombre = compacto(d.proveedor.nombre)
-      const cand = movs.filter((x) => !usados.has(x.id) && x.contraparte && (compacto(x.contraparte).includes(nombre) || nombre.includes(compacto(x.contraparte).slice(0, 8))) && x.fecha.getTime() >= d.emision.getTime() - 20 * 86400000 && x.cargo < d.total)
+      const cand = movs.filter((x) => !usados.has(x.id) && mismoNombre(d.proveedor.nombre, x.contraparte) && x.fecha.getTime() >= d.emision.getTime() - 20 * 86400000 && x.cargo < d.total)
       let par: [(typeof movs)[number], (typeof movs)[number]] | null = null
       for (let i = 0; i < cand.length && !par; i++) for (let j = i + 1; j < cand.length; j++) {
         if (Math.abs(cand[i].cargo + cand[j].cargo - d.total) / d.total <= 0.02) { par = [cand[i], cand[j]]; break }

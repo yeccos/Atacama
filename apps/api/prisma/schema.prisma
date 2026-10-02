@@ -564,8 +564,18 @@ model Documento {
   aplicaciones AplicacionPago[]
   costos       CostoEmbarque[]
   camiones     CamionMP[]
+  archivo      DocumentoArchivo?
 
   @@unique([proveedorId, tipo, folio])
+}
+
+// El PDF de la factura, guardado en la base (viaja en los respaldos y sirve igual en el servidor).
+model DocumentoArchivo {
+  id          Int       @id @default(autoincrement())
+  documentoId Int       @unique
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  nombre      String
+  datos       Bytes
 }
 
 model Pago {
