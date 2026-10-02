@@ -15,6 +15,7 @@ import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarCobrosDeSeptiembre } from './cobrosSeptiembre'
 import { cargarCobrosReales } from './cobrosReales'
 import { cargarDiaArriendo } from './diaArriendo'
+import { cargarSaldoCajaOctubre } from './saldoCajaOctubre'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -61,6 +62,7 @@ async function main() {
     await cargarCobrosDeSeptiembre(prisma)
     await cargarCobrosReales(prisma)
     await cargarDiaArriendo(prisma)
+    await cargarSaldoCajaOctubre(prisma)
     await cargarMPDeSeptiembre(prisma)
     await quitarCuotasRossiServitral(prisma)
     await cargarBonoDescarga(prisma)
@@ -333,7 +335,7 @@ async function main() {
   // ── Bancos ──
   await prisma.cuentaBancaria.createMany({
     data: [
-      { nombre: 'Bice CLP', banco: 'Bice', moneda: 'CLP', saldoInicial: 10102270, fechaSaldoInicial: f('2026-09-30') },
+      { nombre: 'Bice CLP', banco: 'Bice', moneda: 'CLP', saldoInicial: 2538855, fechaSaldoInicial: f('2026-10-01') },
       { nombre: 'Bice USD', banco: 'Bice', moneda: 'USD' },
       { nombre: 'Bancoestado', banco: 'Bancoestado', moneda: 'CLP' },
     ],
@@ -409,6 +411,7 @@ async function main() {
   await cargarCobrosDeSeptiembre(prisma)
   await cargarCobrosReales(prisma)
   await cargarDiaArriendo(prisma)
+  await cargarSaldoCajaOctubre(prisma)
   await cargarMPDeSeptiembre(prisma)
   await quitarCuotasRossiServitral(prisma)
   await cargarBonoDescarga(prisma)
