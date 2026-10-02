@@ -118,7 +118,10 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
   // ── Partidas manuales ──
   for (const x of e.partidas) {
     if (x.monto >= 0) eventos.push({ fecha: x.fecha, grupo: 'INGRESO', clave: 'partida-' + x.concepto, nombre: x.concepto, monto: x.monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
-    else egreso(x.fecha, 'partida-' + x.concepto, x.concepto, -x.monto, GRUPO_OTROS)
+    else {
+      const delPpto = e.ppto.egresos.find((l) => l.nombre === x.concepto)
+      egreso(x.fecha, delPpto?.clave ?? 'partida-' + x.concepto, x.concepto, -x.monto, delPpto?.grupo ?? GRUPO_OTROS)
+    }
   }
 
   // ── Devolución de IVA exportador ──

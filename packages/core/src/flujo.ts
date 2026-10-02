@@ -278,9 +278,12 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     const i = col(p.fecha)
     if (i < 0) continue
     const lista = p.monto >= 0 ? ingresos : egresos
-    let l = lista.find((x) => x.clave === 'partida-' + p.concepto)
+    // Una partida con el nombre de una línea del presupuesto (ej. "MP SQM") se suma a esa línea, en su grupo.
+    const delPpto = p.monto < 0 ? e.ppto.egresos.find((x) => x.nombre === p.concepto) : undefined
+    const clave = delPpto?.clave ?? 'partida-' + p.concepto
+    let l = lista.find((x) => x.clave === clave)
     if (!l) {
-      l = { clave: 'partida-' + p.concepto, nombre: p.concepto, grupo: p.monto >= 0 ? GRUPO_OTROS_INGRESOS : GRUPO_OTROS, valores: vacia() }
+      l = { clave, nombre: p.concepto, grupo: delPpto?.grupo ?? (p.monto >= 0 ? GRUPO_OTROS_INGRESOS : GRUPO_OTROS), valores: vacia() }
       lista.push(l)
     }
     l.valores[i] += Math.abs(p.monto)
