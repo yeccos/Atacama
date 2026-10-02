@@ -77,23 +77,6 @@ export default function PlanMP() {
     cargar()
   }
 
-  async function cambiarMezcla(clienteId: number, origenId: number, mes: string, valor: string, tonPorCont: number) {
-    const ton = Number(valor.replace(',', '.'))
-    if (!Number.isFinite(ton) || ton < 0) return cargar()
-    try {
-      await api(`/presupuesto/${versionId}/mezcla`, 'PUT', { clienteId, origenId, mes, contenedores: Math.round((ton / tonPorCont) * 10000) / 10000 })
-      cargar()
-    } catch (e) {
-      setError((e as Error).message)
-      cargar()
-    }
-  }
-
-  const mesesMezcla = datos?.planes[0]?.meses ?? []
-  const nombreOrigen = (id: number) => datos?.origenes.find((o) => o.id === id)?.nombre ?? ''
-  const mezclables = (datos?.clientesMezcla ?? []).filter((c) => !c.soloOrigen)
-  const bloqueados = (datos?.clientesMezcla ?? []).filter((c) => c.soloOrigen)
-
   return (
     <section className="mb-8">
       <div className="mb-2 flex flex-wrap items-end gap-3">
@@ -159,55 +142,6 @@ export default function PlanMP() {
                     )
                   })}
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {mezclables.length > 0 && (
-        <div className="mb-5 rounded border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-3 py-2">
-            <h3 className="font-semibold">Mezcla de origen por contenedor</h3>
-            <p className="text-sm text-slate-500">
-              Tú decides qué contenedores se producen con la sal de otro origen para aprovechar los saldos. Anota cuántas toneladas de materia prima del mes salen del otro origen (puede ser parte de un contenedor); el resto sale del origen habitual.
-              {bloqueados.length > 0 && <> {bloqueados.map((c) => c.nombre).join(', ')} no se puede mezclar (solo {nombreOrigen(bloqueados[0].origenId)}, límite de arsénico).</>}
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left">
-                  <th className="sticky left-0 z-10 bg-white px-3 py-2">Toneladas de MP desde otro origen</th>
-                  {mesesMezcla.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {mezclables.flatMap((c) =>
-                  datos!.origenes.filter((o) => o.id !== c.origenId).map((o) => (
-                    <tr key={c.clienteId + '-' + o.id} className="border-b border-slate-100">
-                      <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">{c.nombre} con {o.nombre} <span className="text-xs text-slate-400">(habitual: {nombreOrigen(c.origenId)})</span></td>
-                      {mesesMezcla.map((m, i) => {
-                        const k = c.desviados[o.id]?.[i] ?? 0
-                        const ton = Math.round(k * c.tonPorCont * 10) / 10
-                        return (
-                          <td key={m} className="px-1 py-1 text-right">
-                            {c.contenedores[i] > 0 ? (
-                              <input
-                                className="w-12 rounded border border-sky-200 bg-sky-50 px-1 py-0.5 text-right text-sky-900"
-                                defaultValue={ton}
-                                key={m + ton}
-                                title={`${c.contenedores[i]} contenedores en el mes; cada uno necesita ${formatoNumero(c.tonPorCont, 1)} t de materia prima. Anota las toneladas que salen de ${o.nombre} (equivale a ${formatoNumero(k, 2)} contenedor).`}
-                                onBlur={(e) => e.target.value !== String(ton) && cambiarMezcla(c.clienteId, o.id, m, e.target.value, c.tonPorCont)}
-                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                              />
-                            ) : <span className="text-slate-300">–</span>}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  )),
-                )}
               </tbody>
             </table>
           </div>

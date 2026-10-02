@@ -41,3 +41,4 @@ app.listen({ port: puerto, host: produccion ? '0.0.0.0' : '127.0.0.1' }).then(()
 })
 
 // Railway solo redespliega si cambian archivos de apps/api: los cambios solo de la web necesitan tocar un archivo de la API.
+// (redespliegue: plan de MP sin la tabla de mezcla)
