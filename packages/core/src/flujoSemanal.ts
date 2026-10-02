@@ -90,7 +90,7 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
       const fecha =
         l.tipo === 'MP' ? sumarDias(etd, -p.diasProduccionAntesETD)
         : l.tipo === 'VARIABLE' || l.tipo === 'FLETE' ? etd
-        : fechaDia(ym, p.diaPagoFijos)
+        : fechaDia(ym, l.diaDelMes ?? p.diaPagoFijos)
       // La materia prima ya pagada sigue dando IVA crédito, pero no sale de la caja.
       if (l.tipo === 'MP' && e.mpPagadoHasta && ym <= e.mpPagadoHasta) return
       egreso(sumarDias(fecha, l.diasPago ?? 0), l.clave, l.nombre, neto * (l.afectoIVA ? factorIVA : 1), l.grupo)
@@ -126,6 +126,17 @@ export function armarFlujoSemanal(e: EntradaFlujoSemanal): ResultadoFlujoSemanal
     const monto = e.devolucionIVAModo === 'fijo' ? e.devolucionIVAMensual : i - e.rezagoIVAMeses >= 0 ? ivaCredito[i - e.rezagoIVAMeses] : 0
     if (monto !== 0) eventos.push({ fecha: fechaDia(ym, p.diaDevolucionIVA), grupo: 'INGRESO', clave: 'devolucion-iva', nombre: 'Devolución de IVA', monto, grupoEgreso: GRUPO_OTROS_INGRESOS })
   })
+
+  // ── Ajustes del usuario: el monto del mes de una línea se reparte entre sus pagos en la misma proporción ──
+  for (const a of e.ajustes ?? []) {
+    const delMes = eventos.filter((ev) => ev.clave === a.clave && ev.fecha.slice(0, 7) === a.mes)
+    const total = sum(delMes.map((ev) => ev.monto))
+    if (delMes.length > 0 && total !== 0) for (const ev of delMes) ev.monto = (ev.monto * a.monto) / total
+    else if (a.monto !== 0) {
+      const plantilla = eventos.find((ev) => ev.clave === a.clave)
+      eventos.push({ fecha: fechaDia(a.mes, 15), grupo: plantilla?.grupo ?? 'EGRESO', clave: a.clave, nombre: plantilla?.nombre ?? a.clave, grupoEgreso: plantilla?.grupoEgreso, monto: a.monto })
+    }
+  }
 
   // ── Períodos: el cierre (todo lo anterior al inicio) y las semanas ──
   const nP = e.nSemanas + 1

@@ -114,7 +114,7 @@ export async function cargarEntrada(versionId: number, op: Opciones = {}) {
       id: g.id, nombre: g.nombre, driver: g.driver, moneda: g.moneda,
       valorFijo: num(g.valorFijo), valorVariable: num(g.valorVariable), mesEspecifico: g.mesEspecifico,
       tipoCosto: g.tipoCosto?.codigo ?? null, afectoIVA: g.afectoIVA, soloFlujo: g.soloFlujo,
-      modoExcel: g.modoExcel as 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE', deudaId: g.deudaId, diasPago: g.proveedor?.diasPago ?? 0,
+      diaDelMes: g.diaPago, modoExcel: g.modoExcel as 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE', deudaId: g.deudaId, diasPago: g.proveedor?.diasPago ?? 0,
     })),
     insumos: insumos.map((i) => ({
       id: i.id, nombre: i.nombre, tipo: i.tipo, base: i.base, afectoIVA: i.afectoIVA, diasPago: i.proveedor?.diasPago ?? 0,
@@ -254,6 +254,23 @@ export function registrarPresupuesto(app: FastifyInstance) {
       version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes,
       origenes: entrada.origenes.map((o) => ({ id: o.id, nombre: o.nombre })), clientesMezcla,
     }
+  })
+
+  /** Ajustes del usuario sobre la proyección: lista, cambiar (monto) o volver al valor proyectado (monto nulo). */
+  app.get('/api/ajustes', async () => prisma.ajusteFlujo.findMany({ orderBy: [{ mes: 'asc' }, { clave: 'asc' }] }))
+  app.put('/api/ajustes', async (req, reply) => {
+    const { clave, mes, monto, nota } = (req.body ?? {}) as { clave?: string; mes?: string; monto?: number | null; nota?: string }
+    if (!clave || !mes || !/^\d{4}-\d{2}$/.test(mes)) return reply.code(400).send({ error: 'Datos no válidos' })
+    const antes = await prisma.ajusteFlujo.findUnique({ where: { clave_mes: { clave, mes } } })
+    if (monto === null || monto === undefined) {
+      if (antes) await prisma.ajusteFlujo.delete({ where: { id: antes.id } })
+      await auditar(req.usuario, 'AjusteFlujo', antes?.id ?? null, 'ELIMINAR', antes, null)
+      return { ok: true }
+    }
+    if (!Number.isInteger(monto) || monto < 0) return reply.code(400).send({ error: 'El monto debe ser un entero en pesos, positivo' })
+    const despues = await prisma.ajusteFlujo.upsert({ where: { clave_mes: { clave, mes } }, update: { monto, nota }, create: { clave, mes, monto, nota } })
+    await auditar(req.usuario, 'AjusteFlujo', despues.id, antes ? 'MODIFICAR' : 'CREAR', antes, despues)
+    return despues
   })
 
   /** Flujo mensual (24 meses por defecto). */
@@ -437,6 +454,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     mesesSinFin: par.numero('mesesCuotaSinFin', 12),
     saldoMinimo: par.numero('saldoMinimoCaja', 0),
     primerPeriodoInformativo: true,
+    ajustes: (await prisma.ajusteFlujo.findMany()).map((a) => ({ clave: a.clave, mes: a.mes, monto: a.monto })),
     mpPagadoHasta: par.texto('mpPagadaHasta', '') || undefined,
   }
 

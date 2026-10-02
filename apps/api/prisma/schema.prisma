@@ -311,6 +311,8 @@ model GastoDriver {
   afectoIVA   Boolean @default(true)
   // Egreso de caja que no va al EERR (inversiones, amortización de deuda).
   soloFlujo   Boolean @default(false)
+  // Día del mes en que se paga (flujo semanal); vacío = el día de gastos fijos de los parámetros.
+  diaPago     Int?
   activo      Boolean @default(true)
   nota        String?
   // Cómo se comportaba esta línea en el Excel original (para la réplica de validación):
@@ -368,6 +370,17 @@ model MezclaOrigen {
   contenedores Int
 
   @@unique([versionId, clienteId, origenId, mes])
+}
+
+// Ajuste del usuario sobre el flujo proyectado: el monto de una línea en un mes pasa a ser este (en pesos, positivo).
+model AjusteFlujo {
+  id    Int      @id @default(autoincrement())
+  clave String
+  mes   String // aaaa-mm
+  monto Int
+  nota  String?
+
+  @@unique([clave, mes])
 }
 
 // Partida manual del flujo de caja: ingreso (+) o egreso (-) puntual, en CLP.

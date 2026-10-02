@@ -86,6 +86,15 @@ describe('flujo de caja', () => {
     expect(f.egresos.find((l) => l.clave === 'a')!.valores).toEqual([0, 1190000, 1190000])
     expect(f.egresos.find((l) => l.clave === 'b')!.valores).toEqual([0, 500000, 0])
   })
+  it('un ajuste reemplaza el monto de una línea en un mes, recalcula el saldo y recuerda el original', () => {
+    const e = base()
+    const sin = armarFlujo(e)
+    e.ajustes = [{ clave: 'a', mes: MESES[1], monto: 2000000 }]
+    const con = armarFlujo(e)
+    expect(con.egresos.find((l) => l.clave === 'a')!.valores).toEqual([0, 2000000, 1190000])
+    expect(con.ajustados).toEqual([{ clave: 'a', mes: MESES[1], original: 1190000 }])
+    expect(sin.saldoFinal[1] - con.saldoFinal[1]).toBe(810000)
+  })
   it('sueldos líquidos y Previred reemplazan a las remuneraciones del presupuesto', () => {
     const f = armarFlujo(base())
     expect(f.egresos.some((l) => l.clave === 'r')).toBe(false)

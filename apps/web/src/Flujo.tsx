@@ -50,6 +50,16 @@ export default function Flujo() {
   }, [cargar])
 
   const f = datos?.flujo
+  // Ajustar una celda: queda guardado y el flujo se recalcula (la primera columna es el cierre informativo).
+  async function ajustar(clave: string, columna: number, monto: number | null) {
+    if (!f) return
+    try {
+      await api('/ajustes', 'PUT', { clave, mes: f.meses[columna], monto })
+      await cargar()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
   const grafico = f?.meses.map((m, i) => ({ mes: nombreMes(m), saldo: Math.round(f.saldoFinal[i]) })) ?? []
   const fila = (clave: string, nombre: string, valores: number[], clases = '') => (
     <tr key={clave} className={`border-b border-slate-100 ${clases}`}>
@@ -130,6 +140,10 @@ export default function Flujo() {
                   ordenGrupos={[]}
                   abiertoInicial
                   ordenLinea={ordenHito}
+                  alEditar={ajustar}
+                  ajustados={f.ajustados}
+                  columnaEditable={(i) => i > 0}
+                  columnasMes={f.meses}
                 />
                 {fila('ti', 'Total ingresos', f.totalIngresos, 'bg-slate-50 font-semibold')}
                 <tr className="bg-slate-100"><td colSpan={f.meses.length + 1} className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">Egresos</td></tr>
@@ -138,6 +152,10 @@ export default function Flujo() {
                   facturas={datos?.facturas ?? []}
                   columnas={f.meses.length}
                   columnaDe={(fecha) => f.meses.indexOf(fecha.slice(0, 7))}
+                  alEditar={ajustar}
+                  ajustados={f.ajustados}
+                  columnaEditable={(i) => i > 0}
+                  columnasMes={f.meses}
                 />
                 {fila('te', 'Total egresos', f.totalEgresos, 'bg-slate-50 font-semibold')}
                 {fila('fn', 'Flujo neto del mes', f.flujoNeto, 'saldo font-semibold')}
@@ -146,7 +164,7 @@ export default function Flujo() {
             </table>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            La columna de septiembre es informativa: lo que muestra ya está incluido en el saldo del banco con que parte el flujo. Cobros al tipo de cambio del presupuesto; devolución de IVA:{' '}
+            Haz clic en cualquier monto de una línea (abre el grupo) para ajustarlo; queda marcado en amarillo y se puede volver a la proyección dejándolo vacío. La columna de septiembre es informativa: lo que muestra ya está incluido en el saldo del banco con que parte el flujo. Cobros al tipo de cambio del presupuesto; devolución de IVA:{' '}
             {datos?.modoIVA === 'fijo' ? 'monto fijo mensual (parámetro)' : 'calculada sobre el IVA crédito'}. Las compras de materia prima se pagan cuando se consumen
             (la fecha real de pago llega con las facturas, Fase 4).
           </p>

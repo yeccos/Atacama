@@ -140,7 +140,15 @@ export interface DeudaFlujo {
   hasta: string | null
 }
 
+/** Ajuste del usuario: en ese mes, esa línea vale este monto (positivo, en pesos). */
+export interface AjusteFlujoIn {
+  clave: string
+  mes: string
+  monto: number
+}
+
 export interface EntradaFlujo {
+  ajustes?: AjusteFlujoIn[]
   /** La primera columna (el cierre anterior al saldo inicial) se muestra pero no mueve el saldo: ya está en el saldo del banco. */
   primerPeriodoInformativo?: boolean
   ppto: ResultadoPpto
@@ -195,6 +203,8 @@ export interface ResultadoFlujo {
   /** IVA crédito de las compras del mes, solo informativo en modo fijo. */
   ivaCredito: number[]
   alertas: AlertaFlujo[]
+  /** Celdas que el usuario ajustó, con lo que valía la proyección antes del ajuste. */
+  ajustados?: { clave: string; mes: string; original: number }[]
 }
 
 const sumar = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
@@ -284,6 +294,16 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
   })
   if (devolucion.some((v) => v !== 0)) ingresos.push({ clave: 'devolucion-iva', nombre: 'Devolución de IVA', grupo: GRUPO_OTROS_INGRESOS, valores: devolucion })
 
+  // Ajustes del usuario: reemplazan el valor proyectado de una línea en un mes.
+  const ajustados: { clave: string; mes: string; original: number }[] = []
+  for (const a of e.ajustes ?? []) {
+    const i = e.meses.indexOf(a.mes)
+    const linea = i < 0 ? undefined : [...ingresos, ...egresos].find((l) => l.clave === a.clave)
+    if (!linea) continue
+    ajustados.push({ clave: a.clave, mes: a.mes, original: linea.valores[i] })
+    linea.valores[i] = a.monto
+  }
+
   const totalIngresos = e.meses.map((_, i) => sumar(ingresos.map((l) => l.valores[i])))
   const totalEgresos = e.meses.map((_, i) => sumar(egresos.map((l) => l.valores[i])))
   const flujoNeto = totalIngresos.map((v, i) => v - totalEgresos[i])
@@ -298,5 +318,5 @@ export function armarFlujo(e: EntradaFlujo): ResultadoFlujo {
     else if (s < e.saldoMinimo) alertas.push({ mes: e.meses[i], tipo: 'SALDO_BAJO', mensaje: `Saldo bajo el mínimo a fin de ${e.meses[i]}` })
   })
 
-  return { meses: e.meses, saldoInicial: e.saldoInicial, ingresos, egresos, totalIngresos, totalEgresos, flujoNeto, saldoFinal, ivaCredito, alertas }
+  return { meses: e.meses, saldoInicial: e.saldoInicial, ingresos, egresos, totalIngresos, totalEgresos, flujoNeto, saldoFinal, ivaCredito, alertas, ajustados }
 }

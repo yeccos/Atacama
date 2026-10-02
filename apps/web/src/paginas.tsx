@@ -239,6 +239,7 @@ export const PAGINAS: Pagina[] = [
           { campo: 'proveedorId', titulo: 'Proveedor', tipo: 'ref', ref: 'proveedores', ancho: 180 },
           { campo: 'afectoIVA', titulo: 'Afecto IVA', tipo: 'bool', defecto: true, ancho: 110 },
           { campo: 'soloFlujo', titulo: 'Solo flujo', tipo: 'bool', ancho: 110 },
+          { campo: 'diaPago', titulo: 'Día de pago', tipo: 'entero', ancho: 110 },
           { campo: 'activo', titulo: 'Activo', tipo: 'bool', defecto: true, ancho: 100 },
           { campo: 'nota', titulo: 'Nota', ancho: 300 },
         ],

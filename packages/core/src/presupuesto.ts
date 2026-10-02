@@ -62,6 +62,8 @@ export interface GastoIn {
   tipoCosto: string | null
   afectoIVA: boolean
   soloFlujo: boolean
+  /** Día del mes en que se paga (flujo semanal). */
+  diaDelMes?: number | null
   modoExcel: 'NORMAL' | 'FUERA_DE_TOTAL' | 'NO_EXISTE'
   deudaId: number | null
   diasPago?: number
@@ -118,6 +120,8 @@ export interface LineaPpto {
   clave: string
   /** Gran grupo de egresos al que pertenece. */
   grupo?: string
+  /** Día del mes en que se paga, si no es el de los gastos fijos. */
+  diaDelMes?: number
   nombre: string
   /** Egresos en negativo, como en el Excel. */
   valores: number[]
@@ -360,6 +364,7 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
     egresos.push({
       clave: 'gasto-' + g.id,
       grupo: grupoGasto(g.tipoCosto, g.driver),
+      diaDelMes: g.diaDelMes ?? undefined,
       nombre: g.nombre,
       valores,
       afectoIVA: g.afectoIVA,
