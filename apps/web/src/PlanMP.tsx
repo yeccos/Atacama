@@ -21,6 +21,7 @@ interface Respuesta {
   tonPorCamion: number
   mermaPct: number
   stockMinimoT: number
+  ventas: { clienteId: number; nombre: string; origenHabitual: string | null; soloOrigen: boolean; kgPorCont: number; contenedores: number[]; kg: number[]; tonMP: number[] }[]
   planes: (PlanMPOrigen & { consumoPorCliente: { clienteId: number; nombre: string; valores: number[] }[]; previo: { mes: string; camiones: number; compradasT: number; stockInicioT: number; stockFinalT: number; valorStockFinalCLP: number } })[]
 }
 
@@ -116,6 +117,53 @@ export default function PlanMP() {
         (Europa), y no se puede usar el de Albemarle.
       </p>
       {error && <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      {datos && datos.ventas.length > 0 && (
+        <div className="mb-5 rounded border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-3 py-2">
+            <h3 className="font-semibold">Ventas del presupuesto que hay que cumplir</h3>
+            <p className="text-sm text-slate-500">Contenedores por cliente y mes, y la materia prima que exigen. Con el stock y los camiones comprados de abajo deben alcanzar.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="text-sm" style={{ tableLayout: 'fixed', width: 300 + (datos.planes[0]?.meses.length ?? 0) * 96 }}>
+              <colgroup>
+                <col style={{ width: 300 }} />
+                {datos.planes[0]?.meses.map((m) => <col key={m} style={{ width: 96 }} />)}
+              </colgroup>
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="sticky left-0 z-10 bg-white px-3 py-2">Cliente (contenedores)</th>
+                  {datos.planes[0]?.meses.map((m) => <th key={m} className="px-3 py-2 text-right font-medium">{nombreMes(m)}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {datos.ventas.map((v) => (
+                  <tr key={v.clienteId} className="border-b border-slate-100">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 whitespace-nowrap">{v.nombre} <span className="text-xs text-slate-400">({formatoNumero(v.kgPorCont / 1000, 1)} t c/u{v.origenHabitual ? ', ' + v.origenHabitual : ''})</span></td>
+                    {v.contenedores.map((k, i) => <td key={i} className="px-3 py-1.5 text-right" title={k ? `${formatoNumero(v.kg[i] / 1000, 1)} t vendidas; ${formatoNumero(v.tonMP[i], 1)} t de materia prima` : ''}>{k || ''}</td>)}
+                  </tr>
+                ))}
+                <tr className="border-b border-slate-100 font-medium">
+                  <td className="sticky left-0 z-10 bg-white px-3 py-1.5">Materia prima que exigen (t)</td>
+                  {datos.planes[0]?.meses.map((_, i) => <td key={i} className="px-3 py-1.5 text-right">{t(datos.ventas.reduce((s, v) => s + v.tonMP[i], 0)) === '0' ? '' : t(datos.ventas.reduce((s, v) => s + v.tonMP[i], 0))}</td>)}
+                </tr>
+                <tr className="bg-slate-50">
+                  <td className="sticky left-0 z-10 bg-slate-50 px-3 py-1.5 font-semibold">¿Alcanza con lo comprado?</td>
+                  {datos.planes[0]?.meses.map((_, i) => {
+                    const exigido = datos.ventas.reduce((s, v) => s + v.tonMP[i], 0)
+                    const faltan = datos.planes.filter((p) => p.stockFinalT[i] < -0.0005)
+                    return (
+                      <td key={i} className={`px-3 py-1.5 text-right text-xs ${faltan.length ? 'font-semibold text-red-700' : 'text-emerald-700'}`} title={faltan.map((p) => `${p.nombre}: faltan ${formatoNumero(-p.stockFinalT[i], 1)} t`).join('; ')}>
+                        {exigido === 0 ? '' : faltan.length ? faltan.map((p) => `${p.nombre} −${formatoNumero(-p.stockFinalT[i], 1)} t`).join(' · ') : 'Sí'}
+                      </td>
+                    )
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {mezclables.length > 0 && (
         <div className="mb-5 rounded border border-slate-200 bg-white">

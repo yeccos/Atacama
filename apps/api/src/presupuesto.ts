@@ -269,8 +269,19 @@ export function registrarPresupuesto(app: FastifyInstance) {
           entrada.origenes.filter((o) => o.id !== cl.origenId).map((o) => [o.id, recortar(entrada.meses.map((_, i) => (entrada.mezcla?.[cl.id]?.[o.id]?.[i] ?? 0)))]),
         ),
       }))
+    // Las ventas del presupuesto que la materia prima debe poder cumplir: contenedores, kilos y toneladas de MP por cliente y mes.
+    const ventas = entrada.clientes
+      .filter((cl) => (entrada.contenedores[cl.id] ?? []).some((k) => k > 0))
+      .map((cl) => {
+        const cont = recortar(entrada.contenedores[cl.id] ?? [])
+        return {
+          clienteId: cl.id, nombre: cl.nombre, origenHabitual: entrada.origenes.find((o) => o.id === cl.origenId)?.nombre ?? null, soloOrigen: !!cl.soloOrigen,
+          kgPorCont: cl.kgPorCont, contenedores: cont, kg: cont.map((k) => k * cl.kgPorCont),
+          tonMP: cont.map((k) => (k * cl.kgPorCont) / 1000 / (1 - entrada.mermaPct / 100)),
+        }
+      })
     return {
-      version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes,
+      ventas, version: { id: c.version.id, nombre: c.version.nombre }, tonPorCamion: entrada.tonPorCamion, mermaPct: entrada.mermaPct, stockMinimoT, tc: entrada.tc, planes,
       origenes: entrada.origenes.map((o) => ({ id: o.id, nombre: o.nombre })), clientesMezcla,
     }
   })
