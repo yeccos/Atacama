@@ -15,6 +15,7 @@ import { cargarFacturasComoDocumentos } from './documentos'
 import { cargarCobrosDeSeptiembre } from './cobrosSeptiembre'
 import { cargarCobrosReales } from './cobrosReales'
 import { cargarDiaArriendo } from './diaArriendo'
+import { cargarMPDeOctubre } from './mpOctubre'
 import { marcarArriendoPagadoPorMEL } from './arriendoMEL'
 import { cargarDevolucionesDePrestamos } from './prestamos'
 import { cargarCuentaBice } from './bancos'
@@ -57,6 +58,7 @@ async function main() {
     await cargarCobrosDeSeptiembre(prisma)
     await cargarCobrosReales(prisma)
     await cargarDiaArriendo(prisma)
+    await cargarMPDeOctubre(prisma)
     await ajustarCamionesMinimos(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
@@ -401,6 +403,7 @@ async function main() {
   await cargarCobrosDeSeptiembre(prisma)
   await cargarCobrosReales(prisma)
   await cargarDiaArriendo(prisma)
+  await cargarMPDeOctubre(prisma)
   await ajustarCamionesMinimos(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
