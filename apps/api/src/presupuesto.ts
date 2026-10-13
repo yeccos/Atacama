@@ -499,7 +499,8 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
       })
     }
     for (const h of pendientes) {
-      const fecha = fechaDelHito(e, h, e.cliente.destino?.diasTransito ?? 20, e.cliente.hitos)
+      // Si en la pantalla de cobros se puso una fecha de cobro, esa manda sobre la calculada con las fechas del embarque.
+      const fecha = h.fechaCobro ? iso(h.fechaCobro) : fechaDelHito(e, h, e.cliente.destino?.diasTransito ?? 20, e.cliente.hitos)
       if (!fecha) continue
       cobros.push({
         clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(fecha, h.diasAtraso + atraso), usdCent: h.montoUsdCent,

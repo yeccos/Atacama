@@ -184,7 +184,7 @@ export default function Flujo() {
         <Maestro
           recurso="hitosCobro"
           titulo="Cobros de embarques reales (marca los días de atraso)"
-          ayuda="La fecha de cada cobro sale de las fechas del embarque (pantalla Embarques en curso) y los días de su forma de pago. Aquí solo ajustas los días de atraso, y el flujo se recalcula al instante. Los cobros en estado COBRADO ya no entran al flujo."
+          ayuda="La fecha de cada cobro sale de las fechas del embarque (pantalla Embarques en curso) y los días de su forma de pago. Aquí puedes ajustar los días de atraso, o escribir la «Fecha de cobro» esperada: si la pones, el flujo usa esa fecha. El flujo se recalcula al instante. Los cobros en estado COBRADO ya no entran al flujo."
           alCambiar={cargar}
           columnas={[
             { campo: 'cliente', titulo: 'Cliente', ancho: 230, soloLectura: true },

@@ -188,7 +188,7 @@ export const PAGINAS: Pagina[] = [
     detalles: [
       {
         campoPadre: 'embarqueId', recurso: 'hitosCobro', titulo: 'Cobros de este embarque',
-        ayuda: 'Los días de atraso se suman a la fecha calculada. Un cobro en estado COBRADO ya no entra al flujo. La "fecha base" solo se usa si el embarque no tiene la fecha de ese hito.',
+        ayuda: 'Los días de atraso se suman a la fecha calculada. Un cobro en estado COBRADO ya no entra al flujo. Si escribes una fecha de cobro en la pantalla Flujo de caja, el flujo usa esa fecha. La "fecha base" solo se usa si el embarque no tiene la fecha de ese hito.',
         columnas: [
           { campo: 'evento', titulo: 'Hito', tipo: 'opcion', opciones: [...EVENTOS_HITO] },
           { campo: 'pct', titulo: '%', tipo: 'decimal', ancho: 90 },
