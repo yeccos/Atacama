@@ -62,6 +62,8 @@ export interface CobroFlujo {
   /** Hito del que viene (OC, BL, ETA...) y su porcentaje: el flujo muestra una línea por hito. */
   evento?: string
   pct?: number
+  /** Cuando un cliente tiene varios embarques de 1 contenedor en curso, cuál es (1, 2...): el flujo los muestra por separado. */
+  contenedor?: number
   /** Pesos realmente recibidos (cobros ya hechos, según la cartola); si no está, se calcula con el dólar del escenario. */
   clp?: number
   /** Ya se cobró: queda en su fecha real (cierre), no se corre a la primera semana como un cobro atrasado. */
@@ -72,9 +74,9 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   OC: 'a la OC', PRODUCCION: 'en producción', ETD: 'al embarque', BL: 'contra BL', ETA: 'a la llegada', FACTURA: 'contra factura', FECHA_FIJA: 'fecha fija',
 }
 
-export const claveCobro = (c: CobroFlujo) => 'cobro-' + c.clienteId + (c.evento ? '-' + c.evento : '')
+export const claveCobro = (c: CobroFlujo) => 'cobro-' + c.clienteId + (c.contenedor ? '-c' + c.contenedor : '') + (c.evento ? '-' + c.evento : '')
 export const nombreCobro = (c: CobroFlujo) =>
-  c.evento ? `Cobros ${c.nombre} · ${c.pct !== undefined ? c.pct + '% ' : ''}${ETIQUETA_EVENTO[c.evento] ?? c.evento}` : `Cobros ${c.nombre}`
+  c.evento ? `Cobros ${c.nombre} · ${c.contenedor ? 'Contenedor ' + c.contenedor + ' · ' : ''}${c.pct !== undefined ? c.pct + '% ' : ''}${ETIQUETA_EVENTO[c.evento] ?? c.evento}` : `Cobros ${c.nombre}`
 
 export interface ClienteCobro {
   id: number

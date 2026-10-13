@@ -151,7 +151,8 @@ export interface LineaPpto {
 export interface ResultadoPpto {
   meses: string[]
   contenedores: { clienteId: number; nombre: string; valores: number[] }[]
-  ventas: { clienteId: number; nombre: string; valores: number[] }[]
+  /** `porContenedor[n-1]`: lo que aporta el contenedor n del mes (1.º, 2.º...) al total de la venta. */
+  ventas: { clienteId: number; nombre: string; valores: number[]; porContenedor: number[][] }[]
   totalVentas: number[]
   egresos: LineaPpto[]
   totalEgresos: number[]
@@ -228,16 +229,21 @@ export function calcularPresupuesto(e: EntradaPpto, modo: ModoPpto): ResultadoPp
   }
 
   // ── Ventas y volúmenes ──
-  const ventas = e.clientes.map((c) => ({
-    clienteId: c.id,
-    nombre: c.nombre,
-    valores: e.meses.map((_, i) => {
-      const k = cont(c, i)
-      if (k === 0) return 0
-      if (excel) return k * (e.precioPlano?.[c.id] ?? c.usdPorKg) * c.kgPorCont * e.tc
-      return (totalPedidoUsdCent(c.usdPorKg, c.kgPorCont, k, c.escalas) / 100) * e.tc
-    }),
-  }))
+  const ventaDe = (c: (typeof e.clientes)[number], k: number) => {
+    if (k === 0) return 0
+    if (excel) return k * (e.precioPlano?.[c.id] ?? c.usdPorKg) * c.kgPorCont * e.tc
+    return (totalPedidoUsdCent(c.usdPorKg, c.kgPorCont, k, c.escalas) / 100) * e.tc
+  }
+  const ventas = e.clientes.map((c) => {
+    const maxK = Math.max(0, ...e.meses.map((_, i) => cont(c, i)))
+    return {
+      clienteId: c.id,
+      nombre: c.nombre,
+      valores: e.meses.map((_, i) => ventaDe(c, cont(c, i))),
+      porContenedor: Array.from({ length: maxK > 1 ? maxK : 0 }, (_, n) =>
+        e.meses.map((_, i) => (cont(c, i) > n ? ventaDe(c, n + 1) - ventaDe(c, n) : 0))),
+    }
+  })
   const totalVentas = e.meses.map((_, i) => sum(ventas.map((v) => v.valores[i])))
   const kgMes = e.meses.map((_, i) => sum(e.clientes.map((c) => cont(c, i) * c.kgPorCont)))
   const contMes = e.meses.map((_, i) => sum(e.clientes.map((c) => cont(c, i))))

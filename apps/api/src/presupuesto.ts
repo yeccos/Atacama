@@ -479,7 +479,15 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   })
   const cobros: CobroFlujo[] = []
   const cubiertos = new Set<string>()
+  // Cliente con varios embarques de 1 contenedor en curso (p. ej. NADARRA): cada uno se muestra como Contenedor 1, 2...
+  const porClienteEmb = new Map<number, number[]>()
+  for (const e of embarques) if (e.contenedores === 1) porClienteEmb.set(e.clienteId, [...(porClienteEmb.get(e.clienteId) ?? []), e.id])
+  const nContenedor = (e: { id: number; clienteId: number }) => {
+    const ids = (porClienteEmb.get(e.clienteId) ?? []).sort((a, b) => a - b)
+    return ids.length > 1 ? ids.indexOf(e.id) + 1 : undefined
+  }
   for (const e of embarques) {
+    const contenedor = nContenedor(e)
     const pendientes = e.hitos.filter((h) => h.estado !== 'COBRADO')
     const ref = e.fETDReal ?? e.fETDEst ?? pendientes.find((h) => h.fechaEsperada)?.fechaEsperada
     if (ref) cubiertos.add(`${e.clienteId}|${iso(ref).slice(0, 7)}`)
@@ -487,7 +495,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
     for (const h of e.hitos.filter((x) => x.estado === 'COBRADO' && (x.fechaCobro ?? x.fechaEsperada))) {
       cobros.push({
         clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: iso((h.fechaCobro ?? h.fechaEsperada)!), usdCent: h.montoUsdCent,
-        origen: 'REAL', evento: h.evento, pct: num(h.pct), clp: h.clpRecibido ?? undefined, cobrado: true,
+        origen: 'REAL', contenedor, evento: h.evento, pct: num(h.pct), clp: h.clpRecibido ?? undefined, cobrado: true,
       })
     }
     for (const h of pendientes) {
@@ -495,7 +503,7 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
       if (!fecha) continue
       cobros.push({
         clienteId: e.clienteId, nombre: e.cliente.nombre, fecha: sumarDias(fecha, h.diasAtraso + atraso), usdCent: h.montoUsdCent,
-        origen: 'REAL', evento: h.evento, pct: num(h.pct),
+        origen: 'REAL', contenedor, evento: h.evento, pct: num(h.pct),
       })
     }
   }

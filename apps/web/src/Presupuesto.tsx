@@ -45,7 +45,10 @@ function construirFilas(r: ResultadoPpto): Fila[] {
   titulo('t-cont', 'CONTENEDORES')
   for (const c of r.contenedores) f.push({ id: 'cont-' + c.clienteId, concepto: c.nombre, tipo: 'cont', clienteId: c.clienteId, resumen: 'suma', decimales: 0, valores: c.valores, editarEn: 'versiones', formula: 'Contenedores del mes: vienen de las reglas de frecuencia del cliente (Versiones y frecuencias). Si escribes un número en la celda, ese mes queda fijo.' })
   titulo('t-ventas', 'VENTAS')
-  for (const v of r.ventas) f.push({ id: 'vta-' + v.clienteId, concepto: 'Venta ' + v.nombre, tipo: 'linea', resumen: 'suma', decimales: 0, valores: v.valores, editarEn: 'clientes', formula: 'Contenedores × kg por contenedor × US$ por kg × dólar. Con las escalas de descuento si hay más de un contenedor en el pedido.' })
+  for (const v of r.ventas) {
+    f.push({ id: 'vta-' + v.clienteId, concepto: 'Venta ' + v.nombre, tipo: 'linea', resumen: 'suma', decimales: 0, valores: v.valores, editarEn: 'clientes', formula: 'Contenedores × kg por contenedor × US$ por kg × dólar. Con las escalas de descuento si hay más de un contenedor en el pedido.' })
+    v.porContenedor.forEach((valores, n) => f.push({ id: 'vta-' + v.clienteId + '-c' + (n + 1), concepto: '     ' + v.nombre + ' · Contenedor ' + (n + 1), tipo: 'linea', resumen: 'suma', decimales: 0, valores, formula: 'Parte de la venta del mes que corresponde al contenedor ' + (n + 1) + ' (ya está incluida en la línea de arriba; no se suma dos veces).' }))
+  }
   f.push({ id: 'total-ventas', concepto: 'TOTAL VENTAS', tipo: 'total', resumen: 'suma', decimales: 0, valores: r.totalVentas, formula: 'Suma de las ventas de todos los clientes.' })
   titulo('t-egresos', 'EGRESOS')
   for (const l of r.egresos) f.push({ id: l.clave, concepto: l.nombre, tipo: 'linea', resumen: 'suma', decimales: 0, valores: l.valores, formula: l.formula, editarEn: l.editarEn })
