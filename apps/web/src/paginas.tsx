@@ -146,7 +146,7 @@ export const PAGINAS: Pagina[] = [
     extras: [
       {
         recurso: 'camionesMP', titulo: 'Camiones recibidos',
-        ayuda: 'Cada camión es un lote con su propia merma. Si la merma queda vacía se usa la merma por defecto (parámetros).',
+        ayuda: 'Cada camión es un lote con su propia merma. Si la merma queda vacía se usa la merma por defecto (parámetros). Un camión que llegó con guía y cuya factura viene después (Albemarle: 30 días) se marca «Por pagar»: el flujo lo paga en su vencimiento (si no pones monto ni fecha, usa el costo del origen con IVA y guía + 30 días) y la factura se enlaza sola al importarla del SII. Desmárcalo cuando esté todo pagado.',
         columnas: [
           { campo: 'origenId', titulo: 'Origen', tipo: 'ref', ref: 'origenesMP' },
           { campo: 'fecha', titulo: 'Fecha', tipo: 'fecha' },
@@ -154,6 +154,9 @@ export const PAGINAS: Pagina[] = [
           { campo: 'toneladasFacturadas', titulo: 'T facturadas', tipo: 'decimal', decimales: 3, defecto: '28' },
           { campo: 'toneladasRecibidas', titulo: 'T recibidas', tipo: 'decimal', decimales: 3, defecto: '28' },
           { campo: 'mermaPct', titulo: 'Merma real %', tipo: 'decimal' },
+          { campo: 'porPagar', titulo: 'Por pagar', tipo: 'bool', ancho: 100 },
+          { campo: 'montoEstimado', titulo: 'Monto por pagar (con IVA)', tipo: 'monto', ancho: 190 },
+          { campo: 'vencimientoEst', titulo: 'Vence', tipo: 'fecha', ancho: 120 },
           { campo: 'nota', titulo: 'Nota', ancho: 280 },
         ],
       },

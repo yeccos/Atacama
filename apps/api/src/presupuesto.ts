@@ -522,7 +522,20 @@ async function prepararFlujo(versionId: number, op: OpFlujo = {}) {
   // Lo que se debe a proveedores y el presupuesto no proyecta (el resto ya está en sus líneas: sumarlo duplicaría); sale el día de su vencimiento, o hoy si ya venció.
   const hoy = new Date().toISOString().slice(0, 10)
   const facturasPendientes = (await documentosConSaldo()).filter((d) => (d.estado === 'PENDIENTE' || d.estado === 'PARCIAL') && !d.enPresupuesto && d.saldo > 0)
+  // Camiones de MP recibidos con guía y factura por llegar (o factura sin pagar): se pagan en su vencimiento. Si ya llegó la factura, vale su
+  // saldo (más la parte del camión que la factura no incluye, p. ej. el flete); si no, el monto estimado.
+  const porPagarCamiones: { fecha: string; concepto: string; monto: number }[] = []
+  const resumenDocs = new Map((await documentosConSaldo()).map((d) => [d.id, d]))
+  for (const cm of await prisma.camionMP.findMany({ where: { porPagar: true }, include: { origen: true } })) {
+    const estimado = cm.montoEstimado ?? Math.round(((cm.origen.valorCamionCLP ?? 0) + (cm.origen.fleteCamionCLP ?? 0)) * 1.19)
+    const doc = cm.documentoId ? resumenDocs.get(cm.documentoId) : undefined
+    const vence = cm.vencimientoEst ? iso(cm.vencimientoEst) : doc?.vencimiento ?? sumarDias(iso(cm.fecha), 30)
+    const monto = doc ? Math.max(doc.saldo, 0) + Math.max(estimado - doc.total, 0) : estimado
+    if (monto <= 0) continue
+    porPagarCamiones.push({ fecha: vence < hoy ? hoy : vence, concepto: `MP ${cm.origen.nombre}: camión por pagar${cm.guia ? ' (' + cm.guia + ')' : ''}`, monto: -monto })
+  }
   const partidas = [
+    ...porPagarCamiones,
     ...(await prisma.partidaFlujo.findMany({ orderBy: { fecha: 'asc' } })).map((p) => ({ fecha: iso(p.fecha), concepto: p.concepto, monto: p.monto })),
     ...facturasPendientes.map((d) => ({ fecha: (d.vencimiento ?? d.emision) < hoy ? hoy : (d.vencimiento ?? d.emision), concepto: `${d.saldo < 0 ? "Nota de crédito" : "Factura"} ${d.proveedor} N° ${d.folio}`, monto: -d.saldo })),
   ]

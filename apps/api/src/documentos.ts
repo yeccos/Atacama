@@ -19,6 +19,28 @@ const mismoNombre = (a: string, b: string | null) => {
 }
 const AVISO = 'Aviso'
 
+/**
+ * Enlaza cada camión "por pagar" sin factura con la factura que llegó del proveedor del origen: la primera factura sin camión
+ * emitida desde la guía (con tolerancia de 5 días antes). Devuelve cuántos enlazó.
+ */
+export async function enlazarCamionesConFacturas() {
+  const camiones = await prisma.camionMP.findMany({ where: { porPagar: true, documentoId: null }, include: { origen: true }, orderBy: { fecha: 'asc' } })
+  if (!camiones.length) return 0
+  const usados = new Set((await prisma.camionMP.findMany({ where: { documentoId: { not: null } }, select: { documentoId: true } })).map((c) => c.documentoId))
+  let n = 0
+  for (const cm of camiones) {
+    if (!cm.origen.proveedorId) continue
+    const desde = new Date(cm.fecha.getTime() - 5 * 86400000)
+    const docs = await prisma.documento.findMany({ where: { proveedorId: cm.origen.proveedorId, tipo: 'FACTURA', emision: { gte: desde } }, orderBy: { emision: 'asc' } })
+    const doc = docs.find((d) => !usados.has(d.id))
+    if (!doc) continue
+    usados.add(doc.id)
+    await prisma.camionMP.update({ where: { id: cm.id }, data: { documentoId: doc.id } })
+    n++
+  }
+  return n
+}
+
 /** Positivo para facturas y notas de débito, negativo para notas de crédito. */
 const signo = (tipo: string) => (tipo === 'NOTA_CREDITO' ? -1 : 1)
 
@@ -233,7 +255,8 @@ export function registrarDocumentos(app: FastifyInstance) {
       }
     }
     await auditar(req.usuario, 'Documento', null, 'CREAR', null, { importadasSII: creadas })
-    return { aplicado: true, creadas, ...resumen }
+    const camionesEnlazados = await enlazarCamionesConFacturas()
+    return { aplicado: true, creadas, camionesEnlazados, ...resumen }
   })
 
   app.post('/api/documentos/conciliar', async (req) => {
@@ -361,6 +384,7 @@ export function registrarDocumentos(app: FastifyInstance) {
       await aplicar(p.d, [{ m: p.m, monto: p.d.total }], aviso, !agrupado)
     }
     await auditar(req.usuario, 'Documento', null, 'MODIFICAR', null, { conciliadas: verificadas + nuevas + porDetalle + aproximadas })
+    await enlazarCamionesConFacturas()
     return { verificadas, nuevas, porDetalle, aproximadas, avisos, dudosas }
   })
 }

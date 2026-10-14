@@ -505,6 +505,11 @@ model CamionMP {
   documentoId         Int?
   documento           Documento? @relation(fields: [documentoId], references: [id])
   nota                String?
+  // Camión recibido con guía de despacho cuya factura llega después (p. ej. Albemarle factura a los 30 días): mientras esté "por pagar"
+  // el flujo lo paga en su vencimiento. Al llegar la factura (SII) se enlaza sola con el camión.
+  porPagar            Boolean   @default(false)
+  montoEstimado       Int? // CLP con IVA: camión + flete; si falta, se calcula con el costo del origen
+  vencimientoEst      DateTime? // si falta: fecha de la guía + 30 días
 
   consumos ConsumoMP[]
 }
