@@ -45,3 +45,4 @@ app.listen({ port: puerto, host: produccion ? '0.0.0.0' : '127.0.0.1' }).then(()
 // (redespliegue: ventas alineadas con el plan de MP)
 // redeploy: sitio responsive
 // redeploy: contenedores NADARRA
+// redeploy: filtros facturas

@@ -25,6 +25,10 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
   const [docs, setDocs] = useState<Doc[]>([])
   const [saldos, setSaldos] = useState<Saldo[]>([])
   const [filtro, setFiltro] = useState<Estado | 'TODAS'>('TODAS')
+  const [buscar, setBuscar] = useState('')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const [orden, setOrden] = useState<{ campo: 'proveedor' | 'emision' | 'total' | 'saldo' | null; asc: boolean }>({ campo: null, asc: false })
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -182,7 +186,25 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const adicional = pendientes.filter((d) => !d.enPresupuesto).reduce((s, d) => s + d.saldo, 0)
   const vencidas = pendientes.filter((d) => d.vencimiento && d.vencimiento < hoy)
-  const mostradas = filtro === 'TODAS' ? docs : docs.filter((d) => d.estado === filtro)
+  const quitarTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = quitarTildes(buscar.trim())
+  const qDigitos = q.replace(/[^0-9k]/g, '')
+  const filtradas = docs.filter(
+    (d) =>
+      (filtro === 'TODAS' || d.estado === filtro) &&
+      (!q || quitarTildes(d.proveedor).includes(q) || quitarTildes(d.folio).includes(q) || (qDigitos.length >= 3 && (d.proveedorRut ?? '').replace(/[^0-9kK]/g, '').toLowerCase().includes(qDigitos))) &&
+      (!desde || d.emision.slice(0, 10) >= desde) &&
+      (!hasta || d.emision.slice(0, 10) <= hasta),
+  )
+  const mostradas = orden.campo
+    ? [...filtradas].sort((a, b) => {
+        const x = orden.campo === 'proveedor' ? a.proveedor.localeCompare(b.proveedor, 'es') : orden.campo === 'emision' ? a.emision.localeCompare(b.emision) : a[orden.campo!] - b[orden.campo!]
+        return orden.asc ? x : -x
+      })
+    : filtradas
+  const ordenar = (campo: 'proveedor' | 'emision' | 'total' | 'saldo') => setOrden((o) => (o.campo === campo ? { campo, asc: !o.asc } : { campo, asc: campo === 'proveedor' }))
+  const flecha = (campo: string) => (orden.campo === campo ? (orden.asc ? ' ▲' : ' ▼') : '')
+  const hayFiltros = !!(buscar || desde || hasta || filtro !== 'TODAS')
 
   return (
     <div>
@@ -241,19 +263,35 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
         </div>
       )}
 
-      <div className="mb-2 flex gap-2 text-sm">
+      <div className="mb-2 flex flex-wrap items-end gap-3 text-sm">
+        <label className="flex-1" style={{ minWidth: 200 }}>
+          <span className="text-xs text-slate-500">Buscar proveedor, RUT o N° de factura</span>
+          <input className="campo mt-0.5" value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Ej.: SQM, 76.123.456, 92866" />
+        </label>
+        <label>
+          <span className="text-xs text-slate-500">Emisión desde</span>
+          <input type="date" className="campo mt-0.5" value={desde} onChange={(e) => setDesde(e.target.value)} />
+        </label>
+        <label>
+          <span className="text-xs text-slate-500">hasta</span>
+          <input type="date" className="campo mt-0.5" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+        </label>
+        {hayFiltros && <button className="btn" onClick={() => { setBuscar(''); setDesde(''); setHasta(''); setFiltro('TODAS') }}>Limpiar filtros</button>}
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
         {(['TODAS', 'PENDIENTE', 'SUPUESTA', 'PAGADA'] as const).map((e) => (
           <button key={e} onClick={() => setFiltro(e)} className={`rounded px-3 py-1 ${filtro === e ? 'bg-sky-100 font-medium text-sky-900' : 'hover:bg-slate-100'}`}>
             {e === 'TODAS' ? 'Todas' : ETIQUETA[e].texto}
           </button>
         ))}
+        <span className="ml-auto text-slate-500">{mostradas.length} facturas · total {clp(mostradas.reduce((t, d) => t + (d.tipo === 'NOTA_CREDITO' ? -d.total : d.total), 0))} · saldo {clp(mostradas.reduce((t, d) => t + d.saldo, 0))}</span>
       </div>
       <div className="max-h-[32rem] overflow-auto rounded border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-white">
             <tr className="border-b border-slate-200 text-left">
-              <th className="px-3 py-2">Proveedor</th><th className="px-3 py-2">N°</th><th className="px-3 py-2">Emisión</th><th className="px-3 py-2">Vence</th>
-              <th className="px-3 py-2 text-right">Total factura</th><th className="px-3 py-2 text-right">Pagado (cartola)</th><th className="px-3 py-2 text-right">Diferencia</th><th className="px-3 py-2 text-right">Saldo</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2"></th>
+              <th className="cursor-pointer px-3 py-2 select-none" onClick={() => ordenar('proveedor')}>Proveedor{flecha('proveedor')}</th><th className="px-3 py-2">N°</th><th className="cursor-pointer px-3 py-2 select-none" onClick={() => ordenar('emision')}>Emisión{flecha('emision')}</th><th className="px-3 py-2">Vence</th>
+              <th className="cursor-pointer px-3 py-2 text-right select-none" onClick={() => ordenar('total')}>Total factura{flecha('total')}</th><th className="px-3 py-2 text-right">Pagado (cartola)</th><th className="px-3 py-2 text-right">Diferencia</th><th className="cursor-pointer px-3 py-2 text-right select-none" onClick={() => ordenar('saldo')}>Saldo{flecha('saldo')}</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
