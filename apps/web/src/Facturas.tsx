@@ -30,6 +30,69 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
   const [ocupado, setOcupado] = useState(false)
   const [abierta, setAbierta] = useState<{ doc: Doc; det: Detalle | null } | null>(null)
   const entradaPdf = useRef<HTMLInputElement>(null)
+  const entradaSII = useRef<HTMLInputElement>(null)
+  const [sii, setSII] = useState<{ filas: any[]; resumen: any; archivos: string[] } | null>(null)
+
+  /** Lee los Excel/CSV del Registro de Compras del SII (varios a la vez) y muestra qué se cargaría antes de aplicar. */
+  async function leerSII(archivos: FileList | null) {
+    if (!archivos?.length) return
+    setOcupado(true)
+    setError('')
+    setMensaje('')
+    try {
+      const XLSX = await import('xlsx')
+      const norm = (s: any) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const num = (v: any) => (typeof v === 'number' ? Math.round(v) : Math.round(Number(String(v ?? '').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0))
+      const fechaIso = (v: any): string => {
+        if (typeof v === 'number') return new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0, 10)
+        const t = String(v ?? '').trim()
+        const a = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+        if (a) return a[3] + '-' + a[2].padStart(2, '0') + '-' + a[1].padStart(2, '0')
+        return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : ''
+      }
+      const filas: any[] = []
+      for (const archivo of Array.from(archivos)) {
+        const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', raw: true })
+        for (const hoja of libro.SheetNames) {
+          const matriz = XLSX.utils.sheet_to_json<any[]>(libro.Sheets[hoja], { header: 1, defval: '', raw: true })
+          const esRut = (c: any) => norm(c).startsWith('rutproveedor') || norm(c) === 'rut'
+          const h = matriz.findIndex((f) => f.some((c) => norm(c) === 'folio') && f.some(esRut))
+          if (h < 0) continue
+          const col = (...nombres: string[]) => matriz[h].findIndex((c) => nombres.includes(norm(c)))
+          const iRut = matriz[h].findIndex(esRut)
+          const c = { tipo: col('tipodoc', 'tipodocumento', 'tipo'), folio: col('folio'), fecha: col('fechadocto', 'fechadocumento', 'fechaemision'), razon: col('razonsocial', 'proveedor'), exento: col('montoexento'), neto: col('montoneto'), iva: col('montoivarecuperable', 'montoiva', 'iva'), total: col('montototal', 'total') }
+          for (const f of matriz.slice(h + 1)) {
+            if (!f[c.folio] && !f[iRut]) continue
+            filas.push({ rut: String(f[iRut]), razon: String(f[c.razon] ?? ''), tipoDoc: num(f[c.tipo]), folio: String(f[c.folio]).trim(), fecha: fechaIso(f[c.fecha]), exento: num(f[c.exento]), neto: num(f[c.neto]), iva: num(f[c.iva]), total: num(f[c.total]) })
+          }
+        }
+      }
+      if (!filas.length) throw new Error('No encontré filas del Registro de Compras (se buscan las columnas RUT Proveedor, Folio, Fecha Docto, Monto Total...).')
+      const resumen = await api('/documentos/importar-sii', 'POST', { filas, aplicar: false })
+      setSII({ filas, resumen, archivos: Array.from(archivos).map((a) => a.name) })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setOcupado(false)
+      if (entradaSII.current) entradaSII.current.value = ''
+    }
+  }
+
+  async function aplicarSII() {
+    if (!sii) return
+    setOcupado(true)
+    try {
+      const r = await api('/documentos/importar-sii', 'POST', { filas: sii.filas, aplicar: true })
+      setMensaje('Se cargaron ' + r.creadas + ' facturas nuevas del SII (' + r.yaEstaban + ' ya estaban). Ahora presiona «Conciliar con cartolas».')
+      setSII(null)
+      await cargar()
+      alCambiar?.()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   const cargar = useCallback(async () => {
     try {
@@ -127,8 +190,25 @@ export default function Facturas({ alCambiar }: { alCambiar?: () => void }) {
         <h2 className="mr-auto text-base font-semibold">Facturas recibidas</h2>
         <input ref={entradaPdf} type="file" multiple accept=".pdf" className="hidden" onChange={(e) => adjuntar(e.target.files)} />
         <button className="btn" disabled={ocupado} onClick={() => entradaPdf.current?.click()} title="Elige los PDF de las facturas: cada uno se asocia solo a su factura por el N° y el RUT del emisor">Adjuntar PDFs de facturas</button>
+        <input ref={entradaSII} type="file" multiple accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => leerSII(e.target.files)} />
+        <button className="btn" disabled={ocupado} onClick={() => entradaSII.current?.click()} title="Elige los Excel del Registro de Compras del SII (puedes elegir varios, p. ej. agosto, septiembre y octubre): se cargan solo las facturas que faltan">Importar Excel del SII</button>
         <button className="btn" disabled={ocupado} onClick={conciliar}>Conciliar con cartolas</button>
       </div>
+      {sii && (
+        <div className="mb-3 rounded border border-sky-200 bg-sky-50 p-3 text-sm">
+          <p className="font-semibold">{sii.archivos.join(', ')}: {sii.resumen.filas} filas leídas</p>
+          <p>
+            <b>{sii.resumen.nuevas}</b> facturas nuevas para cargar · {sii.resumen.yaEstaban} ya estaban en la app · {sii.resumen.guias} guías de despacho omitidas
+            {sii.resumen.otros ? ' · ' + sii.resumen.otros + ' de otros tipos omitidas (boletas, etc.)' : ''}{sii.resumen.invalidas ? ' · ' + sii.resumen.invalidas + ' filas incompletas omitidas' : ''}
+          </p>
+          {Object.keys(sii.resumen.porMes).length > 0 && <p className="text-slate-600">Por mes: {Object.entries<any>(sii.resumen.porMes).map(([k, v]) => k + ': ' + v.n + ' ($' + formatoNumero(v.total) + ')').join(' · ')}</p>}
+          {sii.resumen.ejemplos.length > 0 && <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">{sii.resumen.ejemplos.map((e: string) => <li key={e}>{e}</li>)}</ul>}
+          <div className="mt-2 flex gap-2">
+            <button className="btn-primario" disabled={ocupado || !sii.resumen.nuevas} onClick={aplicarSII}>Cargar {sii.resumen.nuevas} facturas</button>
+            <button className="btn" onClick={() => setSII(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
       <p className="mb-3 text-sm text-slate-500">
         Las facturas de agosto o antes se suponen pagadas; las de septiembre quedan pendientes hasta que una cartola muestre el pago (mismo monto y mismo proveedor). Lo pendiente de proveedores que el presupuesto ya proyecta (telefonía, sacos, aduana, etc.) no se suma otra vez al flujo; solo se agrega lo que el presupuesto no cubre.
       </p>

@@ -167,6 +167,75 @@ export function registrarDocumentos(app: FastifyInstance) {
   })
 
   // Cruza las facturas pendientes (o solo supuestas) con los pagos de la cartola: mismo monto y mismo proveedor.
+  /**
+   * Importa el Registro de Compras del SII (Excel/CSV leído en el navegador). Sin `aplicar` solo informa qué se cargaría;
+   * con `aplicar` crea las facturas que faltan (clave: RUT del emisor + tipo + folio). Guías de despacho y boletas no se cargan.
+   * Las de agosto o antes quedan como pagadas supuestas, igual que las demás, hasta que una cartola las verifique.
+   */
+  app.post('/api/documentos/importar-sii', { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
+    const { filas, aplicar } = (req.body ?? {}) as { filas?: { rut: string; razon: string; tipoDoc: number; folio: string; fecha: string; exento: number; neto: number; iva: number; total: number }[]; aplicar?: boolean }
+    if (!Array.isArray(filas) || !filas.length) return reply.code(400).send({ error: 'No hay filas para importar' })
+    const dig = (r: string) => (r ?? '').replace(/[^0-9kK]/g, '').toUpperCase()
+    const sinCeros = (s: string) => String(s).trim().replace(/^0+/, '')
+    const TIPOS: Record<number, string> = { 33: 'FACTURA', 34: 'FACTURA', 46: 'FACTURA', 56: 'NOTA_DEBITO', 61: 'NOTA_CREDITO' }
+    const proveedores = await prisma.proveedor.findMany()
+    const porRut = new Map(proveedores.filter((p) => p.rut).map((p) => [dig(p.rut!), p]))
+    const existentes = await prisma.documento.findMany({ select: { proveedorId: true, tipo: true, folio: true } })
+    const hay = new Set(existentes.map((d) => d.proveedorId + '|' + d.tipo + '|' + sinCeros(d.folio)))
+    const vistos = new Set<string>()
+    let guias = 0, otros = 0, yaEstaban = 0, invalidas = 0
+    const nuevas: typeof filas = []
+    for (const x of filas) {
+      const tipo = TIPOS[x.tipoDoc]
+      if (x.tipoDoc === 52) { guias++; continue }
+      if (!tipo) { otros++; continue }
+      if (!x.folio || !dig(x.rut) || !/^\d{4}-\d{2}-\d{2}$/.test(x.fecha) || !(x.total > 0)) { invalidas++; continue }
+      const p = porRut.get(dig(x.rut))
+      const clave = (p ? String(p.id) : 'nuevo-' + dig(x.rut)) + '|' + tipo + '|' + sinCeros(x.folio)
+      if (vistos.has(clave)) continue
+      vistos.add(clave)
+      if (p && hay.has(clave)) { yaEstaban++; continue }
+      nuevas.push(x)
+    }
+    const porMes: Record<string, { n: number; total: number }> = {}
+    for (const x of nuevas) {
+      const k = x.fecha.slice(0, 7)
+      porMes[k] ??= { n: 0, total: 0 }
+      porMes[k].n++
+      porMes[k].total += x.tipoDoc === 61 ? -x.total : x.total
+    }
+    const resumen = { filas: filas.length, nuevas: nuevas.length, yaEstaban, guias, otros, invalidas, porMes, ejemplos: nuevas.slice(0, 15).map((x) => x.fecha + ' · ' + x.razon + ' · N° ' + x.folio + ' · $' + x.total.toLocaleString('es-CL')) }
+    if (!aplicar) return { aplicado: false, ...resumen }
+
+    const formatoRut = (d: string) => d.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + d.slice(-1)
+    const dia = (s: string) => new Date(s + 'T00:00:00.000Z')
+    const mas = (s: string, n: number) => new Date(dia(s).getTime() + n * 86400000)
+    let creadas = 0
+    for (const x of nuevas) {
+      const d = dig(x.rut)
+      let prov = porRut.get(d)
+      if (!prov) {
+        const nombre = x.razon.trim().slice(0, 60) || formatoRut(d)
+        prov = await prisma.proveedor.create({ data: { rut: formatoRut(d), nombre } }).catch(async () => (await prisma.proveedor.findFirst({ where: { nombre } }))!)
+        porRut.set(d, prov)
+      }
+      const tipo = TIPOS[x.tipoDoc]
+      const clave = prov.id + '|' + tipo + '|' + sinCeros(x.folio)
+      if (hay.has(clave)) continue
+      hay.add(clave)
+      const doc = await prisma.documento.create({
+        data: { proveedorId: prov.id, tipo, folio: sinCeros(x.folio), emision: dia(x.fecha), vencimiento: mas(x.fecha, prov.diasPago), neto: x.neto || 0, iva: x.iva || 0, exento: x.exento || 0, total: x.total, nota: 'Importada del Registro de Compras del SII' },
+      })
+      creadas++
+      if (tipo === 'FACTURA' && x.fecha <= '2026-08-31') {
+        const pago = await prisma.pago.create({ data: { proveedorId: prov.id, fecha: mas(x.fecha, prov.diasPago), monto: x.total, nota: 'Supuesto pagado (factura de agosto o antes); se verifica con la cartola' } })
+        await prisma.aplicacionPago.create({ data: { pagoId: pago.id, documentoId: doc.id, monto: x.total } })
+      }
+    }
+    await auditar(req.usuario, 'Documento', null, 'CREAR', null, { importadasSII: creadas })
+    return { aplicado: true, creadas, ...resumen }
+  })
+
   app.post('/api/documentos/conciliar', async (req) => {
     const docs = await prisma.documento.findMany({ where: { tipo: { not: 'NOTA_CREDITO' } }, include: { proveedor: true, aplicaciones: { include: { pago: true } } } })
     const concs = await prisma.conciliacion.findMany({ where: { tipoDestino: 'PAGO' } })
