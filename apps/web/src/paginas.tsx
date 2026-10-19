@@ -170,6 +170,7 @@ export const PAGINAS: Pagina[] = [
       columnas: [
         { campo: 'clienteId', titulo: 'Cliente', tipo: 'ref', ref: 'clientes', ancho: 220 },
         { campo: 'nOC', titulo: 'N° OC', ancho: 100 },
+        { campo: 'nContenedor', titulo: 'N° contenedor', ancho: 130 },
         { campo: 'contenedores', titulo: 'Cont.', tipo: 'entero', defecto: '1', ancho: 80 },
         { campo: 'kgTotal', titulo: 'Kg', tipo: 'entero', ancho: 100 },
         { campo: 'usdPorKg', titulo: 'US$/kg', tipo: 'decimal', decimales: 4, ancho: 100 },

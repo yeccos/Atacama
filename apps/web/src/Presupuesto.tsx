@@ -22,6 +22,7 @@ interface Fila {
 }
 
 interface Respuesta {
+  embarques?: { clienteId: number; mes: string; nContenedor: string }[]
   version: { id: number; nombre: string; tc: number }
   resultado: ResultadoPpto
 }
@@ -127,6 +128,14 @@ export default function Presupuesto({ irA }: { irA: (pagina: string) => void }) 
               return n === null || n < 0 || !Number.isInteger(n) ? p.oldValue : n
             },
             ...celda((f) => f.decimales),
+            // En la fila de contenedores del cliente, se agrega el N° del contenedor del embarque de ese mes (p. ej. «1 · #117»).
+            valueFormatter: (p) => {
+              if (p.value === undefined || p.value === null) return ''
+              const n = formatoNumero(p.value, p.data.decimales)
+              const et = p.data.tipo === 'cont' && p.value > 0 ? p.data.etiquetas?.[m] : undefined
+              return et ? n + ' · #' + et : n
+            },
+            tooltipValueGetter: (p) => (p.data?.tipo === 'cont' && p.data.etiquetas?.[m] ? 'Contenedor N° ' + p.data.etiquetas[m] : undefined),
           })),
         {
           field: 'T' + a,
@@ -147,6 +156,11 @@ export default function Presupuesto({ irA }: { irA: (pagina: string) => void }) 
       const o: Record<string, any> = { id: fila.id, concepto: fila.concepto, tipo: fila.tipo, clienteId: fila.clienteId, decimales: fila.decimales, formula: fila.formula, editarEn: fila.editarEn }
       if (fila.tipo === 'titulo') return o
       meses.forEach((m, i) => (o[campo(m)] = fila.valores[i]))
+      if (fila.tipo === 'cont') {
+        const et: Record<string, string> = {}
+        for (const e of datos.embarques ?? []) if (e.clienteId === fila.clienteId) et[e.mes] = et[e.mes] ? et[e.mes] + ', ' + e.nContenedor : e.nContenedor
+        o.etiquetas = et
+      }
       for (const a of new Set(meses.map((m) => m.slice(0, 4)))) {
         const del = fila.valores.filter((_, i) => meses[i].startsWith(a))
         if (fila.resumen === 'suma') o['T' + a] = del.reduce((s, x) => s + x, 0)

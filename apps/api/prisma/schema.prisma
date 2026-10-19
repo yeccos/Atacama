@@ -408,6 +408,8 @@ model Embarque {
   productoId   Int?
   producto     Producto? @relation(fields: [productoId], references: [id])
   nOC          String?
+  // N° del contenedor (lote) en que va este pedido, p. ej. "117". Se muestra en el presupuesto junto a los contenedores del mes.
+  nContenedor  String?
   contenedores Int      @default(1)
   kgTotal      Int
   usdPorKg     Decimal

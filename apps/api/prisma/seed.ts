@@ -33,6 +33,7 @@ import { cargarCostoCamionConFlete } from './costoCamionConFlete'
 import { cargarWHSCIF } from './whsCIF'
 import { retirarAjustesNadarra } from './ajustesNadarra'
 import { cargarCamionAlbemarleOct } from './camionPorPagar'
+import { cargarContenedorDBC } from './nContenedorDBC'
 import { cargarMPDeSeptiembre } from './mpSeptiembre'
 import { quitarCuotasRossiServitral } from './deudasRossiServitral'
 import { cargarBonoDescarga } from './bonoDescarga'
@@ -102,8 +103,8 @@ async function main() {
     await cargarCostoCamionConFlete(prisma)
     await cargarWHSCIF(prisma)
     await retirarAjustesNadarra(prisma)
-  await cargarCamionAlbemarleOct(prisma)
     await cargarCamionAlbemarleOct(prisma)
+    await cargarContenedorDBC(prisma)
     console.log('La base ya tiene datos. Usa "npm run seed -- --reset" para borrarla y recargar.')
     return
   }
@@ -471,6 +472,7 @@ async function main() {
   await cargarWHSCIF(prisma)
   await retirarAjustesNadarra(prisma)
   await cargarCamionAlbemarleOct(prisma)
+  await cargarContenedorDBC(prisma)
   console.log('Seed cargado. Usuario inicial:', usuario)
 }
 

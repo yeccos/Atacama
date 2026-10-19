@@ -138,9 +138,14 @@ export function registrarPresupuesto(app: FastifyInstance) {
     const q = req.query as { tc?: string; sin?: string }
     const c = await cargarEntrada(Number(id), { tc: q.tc ? Number(q.tc) : undefined, sinCliente: q.sin ? Number(q.sin) : undefined })
     if (!c) return reply.code(404).send({ error: 'La versión no existe' })
+    // N° de contenedor de los embarques en curso, por cliente y mes de embarque (para mostrarlos en el presupuesto).
+    const embarques = (await prisma.embarque.findMany({ where: { versionId: null, nContenedor: { not: null } } }))
+      .filter((e) => e.fETDReal ?? e.fETDEst)
+      .map((e) => ({ clienteId: e.clienteId, mes: iso((e.fETDReal ?? e.fETDEst)!).slice(0, 7), nContenedor: e.nContenedor! }))
     return {
       version: { id: c.version.id, nombre: c.version.nombre, tc: c.entrada.tc },
       resultado: calcularPresupuesto(c.entrada, 'corregido'),
+      embarques,
     }
   })
 
